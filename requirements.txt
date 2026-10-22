@@ -1,0 +1,11 @@
+bleak==1.1.1
+pycryptodome==4.1.0
+protobuf==6.33.6
+pyobjc-core==11.1
+pyobjc-framework-Cocoa==11.1
+pyobjc-framework-CoreBluetooth==11.1
+pyobjc-framework-libdispatch==11.1
+pyobjc-framework-Quartz==11.1
+pyobjc-framework-ApplicationServices==11.1
+rumps==0.4.0
+requests==2.32.5

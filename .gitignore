@@ -1,0 +1,14 @@
+# Personal data - never commit.
+# config.json holds the band's token (auth key), its MAC and your profiles.
+config.json
+app.log
+trace.log
+# raw sensor recordings from "Đo thử click chụm ngón"
+pinch_test.csv
+
+# Local environment and build output
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+AppIcon-preview.png

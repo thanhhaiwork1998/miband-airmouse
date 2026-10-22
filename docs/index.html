@@ -1,0 +1,455 @@
+<title>MiBand AirMouse</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a manual — sticky contents rail on wide screens, one reading column; gestures as an illustrated grid */
+:root {
+  --bg: #f4f5fa;
+  --paper: #ffffff;
+  --ink: #171a2e;
+  --muted: #5a6078;
+  --line: #dde0ee;
+  --accent: #4b45d6;
+  --accent-2: #2c73fa;
+  --accent-soft: #e8e7fb;
+  --band: #4b45d6;
+  --skin: #f1d3bd;
+  --skin-line: #8a6a58;
+  --screen: #eef0f8;
+  --ok: #1f8a5b;
+  --warn: #b5530f;
+  --font-display: "Be Vietnam Pro", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Be Vietnam Pro", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11131f; --paper: #191c2c; --ink: #e9ebf6; --muted: #a2a8c3; --line: #2c3047;
+    --accent: #9d98ff; --accent-2: #6aa2ff; --accent-soft: #27284a; --band: #8c86ff;
+    --skin: #d9b39a; --skin-line: #f0d6c4; --screen: #23263a; --ok: #4cc490; --warn: #f0a060;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11131f; --paper: #191c2c; --ink: #e9ebf6; --muted: #a2a8c3; --line: #2c3047;
+  --accent: #9d98ff; --accent-2: #6aa2ff; --accent-soft: #27284a; --band: #8c86ff;
+  --skin: #d9b39a; --skin-line: #f0d6c4; --screen: #23263a; --ok: #4cc490; --warn: #f0a060;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body);
+  font-size: 16px; line-height: 1.65; margin: 0;
+}
+.wrap {
+  max-width: 1120px; margin: 0 auto;
+  padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px;
+}
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 24px; } .toc { position: static !important; } }
+
+/* contents rail */
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; font-size: 14px; }
+.toc .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; margin-bottom: 18px; }
+.toc .brand img { width: 40px; height: 40px; }
+.toc ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; counter-reset: toc; }
+.toc a { display: block; padding: 6px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; }
+.toc a:hover, .toc a:focus-visible { background: var(--accent-soft); color: var(--ink); outline: none; }
+.toc li { counter-increment: toc; }
+.toc a::before { content: counter(toc) ". "; color: var(--accent); font-weight: 600; }
+
+main { min-width: 0; display: grid; gap: 56px; }
+header.hero { display: grid; gap: 14px; }
+.eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font-family: var(--font-display); font-size: clamp(32px, 5vw, 48px); line-height: 1.12; margin: 0; font-weight: 800; text-wrap: balance; letter-spacing: -0.01em; }
+.lede { font-size: 18px; color: var(--muted); max-width: 62ch; margin: 0; }
+h2 { font-family: var(--font-display); font-size: 26px; line-height: 1.25; margin: 0 0 6px; font-weight: 700; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; }
+h2 .n { color: var(--accent); font-variant-numeric: tabular-nums; }
+h3 { font-size: 18px; margin: 0; line-height: 1.35; font-weight: 700; }
+section { display: grid; gap: 18px; scroll-margin-top: 24px; }
+section > p, .prose { max-width: 66ch; margin: 0; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+code, kbd, .mono { font-family: var(--font-mono); font-size: .88em; }
+kbd { background: var(--paper); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 1px 6px; }
+code { background: var(--accent-soft); border-radius: 5px; padding: 1px 5px; }
+
+/* steps: real sequences only */
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; counter-reset: step; }
+.steps > li { counter-increment: step; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: start; }
+.steps > li::before {
+  content: counter(step); width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 700; font-size: 14px;
+  background: var(--accent); color: var(--paper);
+}
+.steps > li > div { min-width: 0; display: grid; gap: 4px; padding-top: 2px; }
+
+/* screenshots */
+figure.shot { margin: 0; display: grid; gap: 10px; justify-items: start; }
+figure.shot img {
+  border-radius: 12px; border: 1px solid var(--line); background: #e6e6e8;
+  box-shadow: 0 10px 30px -18px rgba(20, 22, 50, .45);
+}
+figure.shot figcaption { font-size: 14px; color: var(--muted); max-width: 60ch; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; align-items: start; }
+
+.note { border-left: 3px solid var(--accent); background: var(--paper); padding: 12px 16px; border-radius: 0 10px 10px 0; max-width: 66ch; }
+.note.warn { border-left-color: var(--warn); }
+.note strong { color: var(--ink); }
+
+/* status icons */
+.icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.icon-row { display: flex; gap: 12px; align-items: center; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.icon-row .glyph { font-size: 20px; min-width: 52px; font-variant-numeric: tabular-nums; }
+
+/* gestures */
+.gestures { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.gesture { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; }
+.gesture svg { display: block; width: 100%; height: auto; background: var(--screen); }
+.gesture .body { padding: 16px 18px 18px; display: grid; gap: 8px; align-content: start; }
+.gesture .what { display: inline-block; font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: .02em; }
+.gesture p { font-size: 15px; }
+.gesture ul { margin: 0; padding-left: 18px; font-size: 15px; display: grid; gap: 2px; }
+
+/* svg drawing tokens */
+.arm { fill: var(--skin); stroke: var(--skin-line); stroke-width: 2; }
+.band { fill: var(--band); }
+.band-screen { fill: var(--paper); opacity: .9; }
+.stroke { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.acc { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.acc-fill { fill: var(--accent); }
+.ink-fill { fill: var(--ink); }
+.screen-frame { fill: var(--paper); stroke: var(--muted); stroke-width: 2; }
+.soft { fill: var(--accent-soft); }
+.lbl { fill: var(--ink); font: 600 13px var(--font-body); }
+.lbl-muted { fill: var(--muted); font: 500 12px var(--font-body); }
+.cross { stroke: var(--warn); stroke-width: 3.5; stroke-linecap: round; }
+
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 600; min-width: 170px; }
+a { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+
+<!-- shared drawings: a forearm wearing the band, pointing right -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="arm" viewBox="0 0 220 90">
+      <rect class="arm" x="-10" y="28" width="140" height="36" rx="16"/>
+      <rect class="band" x="96" y="22" width="22" height="48" rx="7"/>
+      <rect class="band-screen" x="100" y="33" width="14" height="26" rx="4"/>
+      <ellipse class="arm" cx="150" cy="46" rx="26" ry="21"/>
+      <rect class="arm" x="160" y="33" width="46" height="13" rx="6.5"/>
+      <rect class="arm" x="150" y="56" width="30" height="12" rx="6" transform="rotate(-18 150 62)"/>
+    </symbol>
+    <symbol id="hand-pinch" viewBox="0 0 160 120">
+      <rect class="arm" x="-10" y="44" width="70" height="34" rx="15"/>
+      <rect class="band" x="34" y="38" width="20" height="46" rx="7"/>
+      <ellipse class="arm" cx="82" cy="60" rx="26" ry="22"/>
+      <path class="arm" d="M96 46 C112 34 128 30 138 34 C146 38 142 46 132 48 C122 50 112 54 104 58 Z"/>
+      <path class="arm" d="M98 72 C112 72 126 64 134 54 C140 46 134 42 128 46 C120 52 110 58 100 60 Z"/>
+    </symbol>
+    <marker id="tip" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="var(--accent)"/>
+    </marker>
+    <marker id="tip-ink" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="var(--ink)"/>
+    </marker>
+    <symbol id="cursor" viewBox="0 0 20 28">
+      <path d="M2 2 L2 22 L7 17 L11 26 L15 24 L11 15 L18 15 Z" fill="var(--ink)" stroke="var(--paper)" stroke-width="1.5" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Mục lục">
+    <div class="brand"><img src="img/icon.png" alt=""><span>MiBand AirMouse</span></div>
+    <ol>
+      <li><a href="#chuan-bi">Chuẩn bị</a></li>
+      <li><a href="#mo-app">Mở app và cấp quyền</a></li>
+      <li><a href="#token">Lấy token bằng mã QR</a></li>
+      <li><a href="#ket-noi">Chọn vòng và kết nối</a></li>
+      <li><a href="#hieu-chinh">Hiệu chỉnh hướng</a></li>
+      <li><a href="#trang-thai">Đọc biểu tượng trạng thái</a></li>
+      <li><a href="#cu-chi">Các cử chỉ</a></li>
+      <li><a href="#tinh-chinh">Tinh chỉnh và hồ sơ</a></li>
+      <li><a href="#su-co">Xử lý sự cố</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <span class="eyebrow">Hướng dẫn sử dụng</span>
+      <h1>Điều khiển chuột Mac bằng vòng tay Mi Band 10</h1>
+      <p class="lede">Lia cẳng tay để di chuyển con trỏ, chụm ngón cái vào ngón trỏ để click, chụm bốn lần để cuộn trang. Hướng dẫn này đi từ lúc lấy token của vòng đến khi dùng thành thạo các cử chỉ.</p>
+    </header>
+
+    <section id="chuan-bi">
+      <h2><span class="n">1</span>Chuẩn bị</h2>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Cần có</th><th>Ghi chú</th></tr>
+          <tr><td>Máy Mac</td><td>Đã cài <b>MiBand AirMouse</b> trong thư mục Applications của bạn.</td></tr>
+          <tr><td>Xiaomi Smart Band 10</td><td>Đã ghép đôi với app <b>Mi Fitness</b> trên điện thoại. Mi Band 9 / 9 Pro / 9 Active đang ở mức thử nghiệm.</td></tr>
+          <tr><td>Điện thoại</td><td>Có <b>Mi Fitness</b> hoặc <b>Xiaomi Home</b>, đăng nhập đúng tài khoản Xiaomi đã ghép vòng. Chỉ dùng để quét mã QR một lần.</td></tr>
+        </table>
+      </div>
+      <p class="note">Mỗi lúc vòng chỉ kết nối được với <strong>một thiết bị</strong>. Khi dùng với Mac, hãy tắt Bluetooth trên điện thoại (trong Cài đặt, không chỉ ở Trung tâm điều khiển) hoặc thoát hẳn Mi Fitness.</p>
+    </section>
+
+    <section id="mo-app">
+      <h2><span class="n">2</span>Mở app và cấp quyền</h2>
+      <ol class="steps">
+        <li><div><h3>Mở MiBand AirMouse</h3><p>Biểu tượng của app hiện trên Dock, và biểu tượng ⌚︎ hiện trên thanh menu ở góc trên màn hình. Lần đầu mở, màn hình <b>Thiết lập thiết bị</b> sẽ tự hiện.</p></div></li>
+        <li><div><h3>Cho phép Bluetooth</h3><p>Khi macOS hỏi, bấm <b>Allow</b>. App cần Bluetooth để nói chuyện với vòng.</p></div></li>
+        <li><div><h3>Bật quyền Trợ năng (Accessibility)</h3><p>Vào <b>System Settings → Privacy &amp; Security → Accessibility</b> và bật <b>MiBand AirMouse</b>. Thiếu quyền này, app vẫn đọc được vòng nhưng macOS chặn mọi lệnh di chuột và click. Cửa sổ điều khiển sẽ báo bằng một dòng chữ đỏ, kèm nút <b>Mở cài đặt Trợ năng</b>.</p></div></li>
+      </ol>
+      <p class="note warn"><strong>Nếu chuột không chạy dù đã bật quyền:</strong> tắt rồi bật lại công tắc MiBand AirMouse trong Accessibility, sau đó thoát và mở lại app. Việc này cần làm lại mỗi khi cài bản app mới.</p>
+    </section>
+
+    <section id="token">
+      <h2><span class="n">3</span>Lấy token bằng mã QR</h2>
+      <p>Token (auth key) là chìa khoá riêng của từng chiếc vòng, được tạo khi vòng ghép đôi với Mi Fitness. App lấy nó từ tài khoản Xiaomi của bạn. Bạn không cần nhập mật khẩu, chỉ cần xác nhận đăng nhập trên điện thoại.</p>
+      <div class="pair">
+        <ol class="steps">
+          <li><div><h3>Bấm “Quét mã QR…”</h3><p>Nút nằm cạnh ô <b>Token</b> trong màn hình thiết lập. Một cửa sổ mã QR hiện ra.</p></div></li>
+          <li><div><h3>Quét bằng điện thoại</h3><p>Mở <b>Mi Fitness</b> hoặc <b>Xiaomi Home</b>, chọn biểu tượng quét mã, quét mã trên màn hình Mac rồi bấm xác nhận đăng nhập.</p></div></li>
+          <li><div><h3>Token tự điền</h3><p>App tìm vòng trong tài khoản, tự điền token, chọn đời vòng và chọn đúng vòng theo địa chỉ MAC. Nếu tài khoản có nhiều vòng, chọn vòng muốn dùng rồi bấm <b>Dùng vòng này</b>.</p></div></li>
+        </ol>
+        <figure class="shot">
+          <img src="img/qr.png" width="380" height="520" alt="Cửa sổ Lấy token bằng mã QR, có mã QR ở giữa và nút Tạo mã mới">
+          <figcaption>Mã QR hết hạn sau 5 phút. Khi đó bấm <b>Tạo mã mới</b>. Mã trong ảnh chỉ là hình minh hoạ.</figcaption>
+        </figure>
+      </div>
+      <p class="note">Không dùng được mã QR? Bấm dòng <b>Đăng nhập bằng mật khẩu (Terminal)…</b> ở cuối cửa sổ. Công cụ lấy token sẽ chạy trong Terminal, bạn nhập tài khoản và mật khẩu Xiaomi rồi chép dòng <code>TOKEN</code> vào ô Token.</p>
+    </section>
+
+    <section id="ket-noi">
+      <h2><span class="n">4</span>Chọn vòng và kết nối</h2>
+      <div class="pair">
+        <figure class="shot">
+          <img src="img/setup.png" width="600" height="400" alt="Màn hình Thiết lập thiết bị đã điền đời vòng, token và vòng tìm thấy">
+          <figcaption>Màn hình thiết lập sau khi quét mã QR: đời vòng, token và vòng đều đã được chọn.</figcaption>
+        </figure>
+        <ol class="steps">
+          <li><div><h3>Bật sáng màn hình vòng</h3><p>Vòng tắt màn hình thì phát tín hiệu thưa, khó tìm hơn.</p></div></li>
+          <li><div><h3>Bấm “Tìm vòng”</h3><p>App quét khoảng 8 giây và liệt kê các vòng Xiaomi ở gần, kèm địa chỉ MAC và cường độ tín hiệu. Vòng mà macOS đang giữ kết nối cũng hiện trong danh sách.</p></div></li>
+          <li><div><h3>Bấm “Lưu và kết nối”</h3><p>App lưu thông tin và kết nối ngay. Vòng sẽ hiện màn hình tập luyện: đó là “buổi tập ẩn” app dùng để đọc cảm biến, không ảnh hưởng dữ liệu sức khoẻ của bạn.</p></div></li>
+        </ol>
+      </div>
+      <p class="muted">Muốn đổi sang vòng khác, đổi token hay quét lại, bấm <b>Thiết lập thiết bị…</b> trong cửa sổ điều khiển hoặc menu ⌚︎.</p>
+    </section>
+
+    <section id="hieu-chinh">
+      <h2><span class="n">5</span>Hiệu chỉnh hướng</h2>
+      <p>Làm một lần cho mỗi cách đeo vòng. App học xem vòng nằm dọc cẳng tay theo trục nào và chiều nào là “sang phải”, “lên trên”. Mở cửa sổ điều khiển, bấm <b>Hiệu chỉnh hướng…</b>, đặt tay ở tư thế bạn hay dùng rồi làm theo ba bước:</p>
+      <div class="gestures">
+        <figure class="gesture" style="margin:0">
+          <svg viewBox="0 0 320 170" role="img" aria-label="Vặn cẳng tay qua lại">
+            <use href="#arm" x="40" y="40" width="220" height="90"/>
+            <path class="acc" d="M128 40 C 150 22, 150 22, 168 40" marker-end="url(#tip)"/>
+            <path class="acc" d="M168 132 C 150 150, 150 150, 128 132" marker-end="url(#tip)"/>
+            <text class="lbl" x="160" y="160" text-anchor="middle">vặn qua lại như vặn nắm cửa</text>
+          </svg>
+          <div class="body"><span class="what">Bước 1/3</span><p>Bấm OK rồi <b>vặn cẳng tay qua lại</b> vài lần trong 2 giây.</p></div>
+        </figure>
+        <figure class="gesture" style="margin:0">
+          <svg viewBox="0 0 320 170" role="img" aria-label="Đưa vòng sang phải">
+            <use href="#arm" x="30" y="40" width="220" height="90"/>
+            <path class="acc" d="M210 150 C 250 140, 280 110, 290 70" marker-end="url(#tip)"/>
+            <text class="lbl" x="160" y="25" text-anchor="middle">đưa vòng sang phải</text>
+          </svg>
+          <div class="body"><span class="what">Bước 2/3</span><p>Bấm OK rồi <b>đưa vòng sang phải</b>, theo kiểu bạn sẽ dùng: lia cả tay hay chống khuỷu tay đều được.</p></div>
+        </figure>
+        <figure class="gesture" style="margin:0">
+          <svg viewBox="0 0 320 170" role="img" aria-label="Đưa vòng lên trên">
+            <g transform="rotate(-18 150 90)"><use href="#arm" x="40" y="45" width="220" height="90"/></g>
+            <path class="acc" d="M282 140 L 282 40" marker-end="url(#tip)"/>
+            <text class="lbl" x="150" y="160" text-anchor="middle">đưa vòng lên trên</text>
+          </svg>
+          <div class="body"><span class="what">Bước 3/3</span><p>Bấm OK rồi <b>đưa vòng lên trên</b>. Xong, app tự chuyển sang chế độ “Theo mặt phẳng”.</p></div>
+        </figure>
+      </div>
+    </section>
+
+    <section id="trang-thai">
+      <h2><span class="n">6</span>Đọc biểu tượng trạng thái</h2>
+      <p>Biểu tượng trên thanh menu cho biết app đang ở trạng thái nào:</p>
+      <div class="icons">
+        <div class="icon-row"><span class="glyph">⌚︎…</span><span>Đang kết nối vòng</span></div>
+        <div class="icon-row"><span class="glyph">⌚︎◌</span><span>Giữ yên tay để app đo điểm đứng yên</span></div>
+        <div class="icon-row"><span class="glyph">⌚︎●</span><span>Đang điều khiển chuột</span></div>
+        <div class="icon-row"><span class="glyph">⌚︎⚓</span><span>Chuột đang neo, sẵn sàng click</span></div>
+        <div class="icon-row"><span class="glyph">⌚︎⇕</span><span>Chế độ cuộn (chụm 4 lần)</span></div>
+        <div class="icon-row"><span class="glyph">⌚︎⇅</span><span>Đang ngửa tay để cuộn nhanh</span></div>
+        <div class="icon-row"><span class="glyph">⌚︎‖</span><span>Tạm dừng</span></div>
+        <div class="icon-row"><span class="glyph">⌚︎!</span><span>Có lỗi, xem dòng trạng thái</span></div>
+      </div>
+    </section>
+
+    <section id="cu-chi">
+      <h2><span class="n">7</span>Các cử chỉ</h2>
+      <p>Vòng đeo ở cẳng tay, nên nó cảm nhận chuyển động của <b>cả cẳng tay</b>. Gập riêng bàn tay gần như không có tác dụng. Hãy dùng tay như đang cầm bút laser chỉ vào màn hình.</p>
+      <div class="gestures">
+
+        <article class="gesture">
+          <svg viewBox="0 0 320 180" role="img" aria-label="Lia cẳng tay, con trỏ đi theo trên màn hình">
+            <rect class="screen-frame" x="214" y="22" width="92" height="66" rx="6"/>
+            <path class="acc" d="M228 70 C 250 46, 272 64, 290 38" stroke-dasharray="4 5"/>
+            <use href="#cursor" x="284" y="30" width="14" height="20"/>
+            <g transform="rotate(-12 120 120)"><use href="#arm" x="10" y="80" width="210" height="86"/></g>
+            <path class="acc" d="M150 172 C 180 168, 200 150, 206 126" marker-end="url(#tip)" marker-start="url(#tip)"/>
+          </svg>
+          <div class="body">
+            <span class="what">Di chuyển con trỏ</span>
+            <h3>Lia hoặc gạt cẳng tay</h3>
+            <p>Tay đi đâu, con trỏ đi theo. Lia chậm để nhắm chính xác, hất nhanh để đi xa: có tăng tốc như chuột thật.</p>
+          </div>
+        </article>
+
+        <article class="gesture">
+          <svg viewBox="0 0 320 180" role="img" aria-label="Dừng tay một giây để neo chuột">
+            <use href="#arm" x="10" y="70" width="210" height="86"/>
+            <circle class="soft" cx="262" cy="64" r="38"/>
+            <circle cx="262" cy="64" r="30" fill="none" stroke="var(--accent)" stroke-width="5" stroke-dasharray="188" stroke-dashoffset="0" stroke-linecap="round"/>
+            <text class="lbl" x="262" y="70" text-anchor="middle">1 giây</text>
+            <text class="lbl-muted" x="262" y="124" text-anchor="middle">giữ yên tay</text>
+            <text x="262" y="160" text-anchor="middle" font-size="26" fill="var(--accent)">⚓</text>
+          </svg>
+          <div class="body">
+            <span class="what">Neo chuột</span>
+            <h3>Dừng tay khoảng 1 giây</h3>
+            <p>Con trỏ khoá tại chỗ (biểu tượng ⚓). Rung tay hay lực chụm ngón không làm nó xê dịch. Đưa tay đi có chủ ý là con trỏ chạy tiếp.</p>
+          </div>
+        </article>
+
+        <article class="gesture">
+          <svg viewBox="0 0 320 180" role="img" aria-label="Chụm ngón cái vào ngón trỏ hai lần để click trái">
+            <use href="#hand-pinch" x="10" y="30" width="200" height="150"/>
+            <circle cx="180" cy="94" r="16" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+            <circle cx="180" cy="94" r="28" fill="none" stroke="var(--accent)" stroke-width="2" opacity=".5"/>
+            <text class="lbl" x="214" y="80">× 2</text>
+            <rect class="screen-frame" x="236" y="104" width="70" height="54" rx="6"/>
+            <use href="#cursor" x="262" y="116" width="14" height="20"/>
+            <path class="acc" d="M258 112 l-6 -6 M282 112 l6 -6 M270 108 l0 -9"/>
+          </svg>
+          <div class="body">
+            <span class="what">Click trái</span>
+            <h3>Chụm ngón cái vào ngón trỏ 2 lần</h3>
+            <ul><li>Dừng cho chuột neo ⚓ trước, rồi chụm 2 lần liền nhau.</li><li>Chạm dứt khoát rồi mở ra.</li><li>Click ra sau khoảng nửa giây, vì app chờ xem bạn có chụm thêm không.</li></ul>
+          </div>
+        </article>
+
+        <article class="gesture">
+          <svg viewBox="0 0 320 180" role="img" aria-label="Chụm bốn lần để bật chế độ cuộn, rồi đưa tay lên xuống để cuộn trang">
+            <use href="#hand-pinch" x="0" y="34" width="180" height="135"/>
+            <text class="lbl" x="150" y="62">× 4</text>
+            <path class="acc" d="M196 150 L 196 42" marker-end="url(#tip)" marker-start="url(#tip)"/>
+            <rect class="screen-frame" x="222" y="24" width="84" height="132" rx="6"/>
+            <rect class="soft" x="232" y="36" width="52" height="8" rx="3"/>
+            <rect class="soft" x="232" y="52" width="60" height="8" rx="3"/>
+            <rect class="soft" x="232" y="68" width="46" height="8" rx="3"/>
+            <rect class="soft" x="232" y="84" width="58" height="8" rx="3"/>
+            <rect class="soft" x="232" y="100" width="40" height="8" rx="3"/>
+            <rect class="acc-fill" x="296" y="40" width="5" height="40" rx="2.5"/>
+          </svg>
+          <div class="body">
+            <span class="what">Chế độ cuộn</span>
+            <h3>Chụm 4 lần, rồi đưa tay lên hoặc xuống</h3>
+            <ul><li>Biểu tượng chuyển thành ⇕, con trỏ đứng yên.</li><li><b>Đưa tay lên</b> thì cuộn lên, <b>đưa xuống</b> thì cuộn xuống. Trang đi theo tay.</li><li>Dừng tay bao lâu chế độ cũng vẫn giữ.</li></ul>
+          </div>
+        </article>
+
+        <article class="gesture">
+          <svg viewBox="0 0 320 180" role="img" aria-label="Vẩy tay thật nhanh để thoát chế độ cuộn">
+            <g transform="rotate(10 140 100)"><use href="#arm" x="40" y="60" width="210" height="86"/></g>
+            <path class="acc" d="M30 70 L 100 78 M24 96 L 96 100 M30 122 L 100 120"/>
+            <path class="acc" d="M262 50 C 284 70, 290 100, 280 130" marker-end="url(#tip)"/>
+            <text class="lbl" x="250" y="168" text-anchor="middle">vẩy nhanh</text>
+          </svg>
+          <div class="body">
+            <span class="what">Thoát chế độ cuộn</span>
+            <h3>Vẩy tay thật nhanh</h3>
+            <p>Theo hướng nào cũng được. Phần trang bị cuộn lúc lấy đà được hoàn lại, con trỏ đứng yên một nhịp rồi đi theo tay. Chụm 4 lần cũng thoát được.</p>
+          </div>
+        </article>
+
+        <article class="gesture">
+          <svg viewBox="0 0 320 180" role="img" aria-label="Lật ngửa bàn tay rồi hất lên để cuộn trang xuống">
+            <g transform="translate(0 180) scale(1 -1)"><use href="#arm" x="10" y="40" width="210" height="86"/></g>
+            <text class="lbl-muted" x="110" y="40" text-anchor="middle">lòng bàn tay ngửa lên</text>
+            <path class="acc" d="M238 150 C 248 110, 252 80, 250 44" marker-end="url(#tip)"/>
+            <text class="lbl" x="262" y="104">hất</text>
+            <path class="stroke" d="M300 60 L 300 140" marker-end="url(#tip-ink)"/>
+          </svg>
+          <div class="body">
+            <span class="what">Cuộn nhanh</span>
+            <h3>Lật ngửa tay, rồi hất lên</h3>
+            <ul><li>Lật hẳn bàn tay và giữ một chút, biểu tượng thành ⇅.</li><li>Mỗi cú hất lên cuộn trang xuống, hất mạnh thì cuộn xa.</li><li>Hạ tay chậm không cuộn ngược. Úp tay lại để về điều khiển chuột.</li></ul>
+          </div>
+        </article>
+
+        <article class="gesture">
+          <svg viewBox="0 0 320 180" role="img" aria-label="Đưa tay ra trước hoặc kéo về sau không làm con trỏ di chuyển">
+            <use href="#arm" x="20" y="54" width="210" height="86"/>
+            <path class="acc" d="M60 152 L 196 152" marker-end="url(#tip)" marker-start="url(#tip)"/>
+            <rect class="screen-frame" x="236" y="40" width="70" height="56" rx="6"/>
+            <use href="#cursor" x="264" y="54" width="14" height="20"/>
+            <line class="cross" x1="244" y1="110" x2="298" y2="164"/>
+            <line class="cross" x1="298" y1="110" x2="244" y2="164"/>
+          </svg>
+          <div class="body">
+            <span class="what">Được bỏ qua</span>
+            <h3>Đưa tay ra trước hoặc kéo về</h3>
+            <p>Khuỷu tay duỗi hay gập làm cẳng tay ngóc lên, chúi xuống, nhưng app nhận ra và giữ con trỏ đứng yên. Bạn thoải mái đổi tư thế.</p>
+          </div>
+        </article>
+
+      </div>
+      <p class="note">Click phải đang <strong>tắt</strong> theo mặc định, vì bấm ngón tay mạnh dễ bị nhận nhầm. Nếu cần, bật <b>Click phải: gõ cổ tay 2 lần</b> trong cửa sổ điều khiển. Khi đó gõ cổ tay ra trước 2 lần sẽ là click phải.</p>
+    </section>
+
+    <section id="tinh-chinh">
+      <h2><span class="n">8</span>Tinh chỉnh và hồ sơ</h2>
+      <p>Bấm biểu tượng app trên Dock để mở cửa sổ điều khiển. Mọi thanh trượt có hiệu lực ngay khi kéo. Phần <b>Đo trực tiếp</b> cho thấy lực mỗi cử chỉ so với ngưỡng: thanh chuyển vàng khi vượt ngưỡng, nhờ vậy bạn biết nên chỉnh lên hay xuống.</p>
+      <figure class="shot">
+        <img src="img/control.png" width="860" height="698" alt="Cửa sổ điều khiển với các thanh đo trực tiếp, thanh trượt và công tắc cử chỉ">
+        <figcaption>Cửa sổ điều khiển. Thu nhỏ hoặc đóng thì app vẫn chạy trên thanh menu ⌚︎.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Muốn</th><th>Chỉnh</th></tr>
+          <tr><td>Tay di ít mà vẫn đi hết màn hình</td><td><b>Tăng tốc khi lia nhanh</b> lên khoảng 3–5. Giữ <b>Tốc độ</b> ở khoảng 600.</td></tr>
+          <tr><td>Con trỏ rung khi nhắm</td><td><b>Độ mượt</b>: Mạnh. Hoặc tăng <b>Vùng chết</b> một chút.</td></tr>
+          <tr><td>Chụm ngón hay bị hụt</td><td><b>Ngưỡng chụm ngón</b> khoảng <span class="mono">0.06–0.08</span>. Đừng hạ thấp hơn: khi đó cả rung lúc nhả ngón cũng bị đếm, làm click hụt nhiều hơn.</td></tr>
+          <tr><td>Trang cuộn ngược ý</td><td>Bật <b>Đảo chiều cuộn</b>.</td></tr>
+          <tr><td>Con trỏ đi ngược hướng</td><td>Chạy lại <b>Hiệu chỉnh hướng…</b>, hoặc bật <b>Đảo chiều trái / phải</b>, <b>Đảo chiều lên / xuống</b>.</td></tr>
+        </table>
+      </div>
+      <p><b>Hồ sơ</b> lưu toàn bộ thông số, kể cả kết quả hiệu chỉnh hướng. Chọn hồ sơ ở đầu cửa sổ để áp dụng ngay, bấm <b>Lưu</b> để ghi thông số đang dùng, hoặc <b>Lưu thành…</b> để tạo hồ sơ mới cho người khác hay cho cách đeo khác. Dòng <span style="color:var(--warn)">• chưa lưu</span> nhắc bạn khi có thay đổi chưa ghi.</p>
+    </section>
+
+    <section id="su-co">
+      <h2><span class="n">9</span>Xử lý sự cố</h2>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Hiện tượng</th><th>Cách xử lý</th></tr>
+          <tr><td>Không tìm thấy vòng</td><td>Bật sáng màn hình vòng, tắt hẳn Bluetooth điện thoại, đặt vòng gần Mac rồi bấm <b>Tìm vòng</b> lại.</td></tr>
+          <tr><td>Báo “Peer removed pairing information”, hoặc kết nối bị treo</td><td>Vào <b>System Settings → Bluetooth</b>, bấm <b>ⓘ</b> cạnh <i>Xiaomi Smart Band 10</i>, chọn <b>Forget This Device</b>, rồi mở lại app.</td></tr>
+          <tr><td>Báo sai token</td><td>Token đổi mỗi khi vòng được reset hoặc ghép đôi lại với Mi Fitness. Vào <b>Thiết lập thiết bị…</b> và quét mã QR lại.</td></tr>
+          <tr><td>Kết nối được nhưng chuột đứng yên</td><td>Thiếu quyền Trợ năng: xem dòng đỏ trong cửa sổ và làm theo <a href="#mo-app">bước 2</a>.</td></tr>
+          <tr><td>Con trỏ tự trôi</td><td>Để yên tay khoảng 1,5 giây là app tự sửa. Hoặc bấm <b>Đặt lại điểm đứng yên</b> rồi giữ yên tay.</td></tr>
+          <tr><td>Vòng tụt pin nhanh</td><td>Đó là do vòng gửi cảm biến liên tục. Bấm <b>Tắt chuột bay</b> hoặc thoát app khi không dùng.</td></tr>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
