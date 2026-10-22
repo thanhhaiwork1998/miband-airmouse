@@ -12,3 +12,7 @@ __pycache__/
 *.pyc
 .DS_Store
 AppIcon-preview.png
+
+# Release builds (build_release.sh)
+build/
+dist/

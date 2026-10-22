@@ -5,6 +5,7 @@ Shown when config.json has no band yet, and from "Thiết lập thiết bị…"
 import os
 import re
 import subprocess
+import sys
 import threading
 
 import AppKit as A
@@ -19,7 +20,6 @@ W, PAD, LABEL_W = 600, 22, 150
 KNOWN_MODELS = {"miwear.watch.o66gl": "Xiaomi Smart Band 10"}  # cloud model id -> MODELS label
 EXTRACTOR = os.path.expanduser("~/xiaomi-extractor/token_extractor.py")
 EXTRACTOR_REPO = "https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor"
-HERE = os.path.dirname(os.path.abspath(__file__))
 
 # (label, supported) - only Xiaomi's newer BLE protocol (fe95 / 005e-005f) is implemented
 MODELS = [
@@ -171,7 +171,7 @@ class SetupWindow(NSObject):
     def open_password_tool(self):
         """Fallback: the original extractor in Terminal (password login)."""
         if os.path.exists(EXTRACTOR):
-            python = os.path.join(HERE, "venv", "bin", "python")
+            python = sys.executable  # the venv, or the runtime bundled in the prebuilt app
             cmd = f"'{python}' '{EXTRACTOR}'"  # single quotes inside AppleScript's double-quoted string
             subprocess.run(["osascript", "-e", 'tell application "Terminal" to activate',
                             "-e", f'tell application "Terminal" to do script "{cmd}"'])

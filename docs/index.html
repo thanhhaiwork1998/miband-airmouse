@@ -197,7 +197,7 @@ html { scroll-behavior: smooth; }
       <div class="table-wrap">
         <table>
           <tr><th>Cần có</th><th>Ghi chú</th></tr>
-          <tr><td>Máy Mac</td><td>Đã cài <b>MiBand AirMouse</b> trong thư mục Applications của bạn.</td></tr>
+          <tr><td>Máy Mac</td><td>macOS 12 trở lên. Tải <b>MiBand-AirMouse-…-arm64.zip</b> (Mac chip Apple M1 trở đi) hoặc <b>…-x86_64.zip</b> (Mac chip Intel) ở trang <a href="https://github.com/thanhhaiwork1998/miband-airmouse/releases/latest">Releases</a>, giải nén rồi kéo <b>MiBand AirMouse</b> vào thư mục <b>Applications</b>.</td></tr>
           <tr><td>Xiaomi Smart Band 10</td><td>Đã ghép đôi với app <b>Mi Fitness</b> trên điện thoại. Mi Band 9 / 9 Pro / 9 Active đang ở mức thử nghiệm.</td></tr>
           <tr><td>Điện thoại</td><td>Có <b>Mi Fitness</b> hoặc <b>Xiaomi Home</b>, đăng nhập đúng tài khoản Xiaomi đã ghép vòng. Chỉ dùng để quét mã QR một lần.</td></tr>
         </table>
@@ -208,6 +208,7 @@ html { scroll-behavior: smooth; }
     <section id="mo-app">
       <h2><span class="n">2</span>Mở app và cấp quyền</h2>
       <ol class="steps">
+        <li><div><h3>Mở lần đầu: cho phép app chưa được Apple xác minh</h3><p>App miễn phí nên không có chữ ký trả phí của Apple. Lần đầu mở, macOS báo không mở được: bấm <b>Done</b> (hoặc <b>OK</b>), vào <b>System Settings → Privacy &amp; Security</b>, kéo xuống dưới và bấm <b>Open Anyway</b> cạnh dòng nhắc MiBand AirMouse, rồi xác nhận bằng mật khẩu máy. Chỉ cần làm một lần.</p></div></li>
         <li><div><h3>Mở MiBand AirMouse</h3><p>Biểu tượng của app hiện trên Dock, và biểu tượng ⌚︎ hiện trên thanh menu ở góc trên màn hình. Lần đầu mở, màn hình <b>Thiết lập thiết bị</b> sẽ tự hiện.</p></div></li>
         <li><div><h3>Cho phép Bluetooth</h3><p>Khi macOS hỏi, bấm <b>Allow</b>. App cần Bluetooth để nói chuyện với vòng.</p></div></li>
         <li><div><h3>Bật quyền Trợ năng (Accessibility)</h3><p>Vào <b>System Settings → Privacy &amp; Security → Accessibility</b> và bật <b>MiBand AirMouse</b>. Thiếu quyền này, app vẫn đọc được vòng nhưng macOS chặn mọi lệnh di chuột và click. Cửa sổ điều khiển sẽ báo bằng một dòng chữ đỏ, kèm nút <b>Mở cài đặt Trợ năng</b>.</p></div></li>

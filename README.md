@@ -38,6 +38,18 @@ Ngoài ra:
 
 ## Cài đặt
 
+### Cách 1: tải bản dựng sẵn (khuyên dùng)
+
+1. Vào trang [**Releases**](https://github.com/thanhhaiwork1998/miband-airmouse/releases/latest) và tải:
+   - `MiBand-AirMouse-…-arm64.zip` cho Mac chip Apple (M1 trở đi);
+   - `MiBand-AirMouse-…-x86_64.zip` cho Mac chip Intel.
+2. Giải nén, kéo **MiBand AirMouse** vào thư mục **Applications** rồi mở.
+3. Lần đầu mở, macOS sẽ chặn vì app chưa được Apple xác minh (app miễn phí, không có chữ ký trả phí). Bấm **Done**, vào *System Settings → Privacy & Security*, kéo xuống và bấm **Open Anyway**. Chỉ cần làm một lần.
+
+Bản dựng sẵn đã kèm Python và mọi thư viện, không cần cài thêm gì. Cài đặt của bạn được lưu ở `~/Library/Application Support/MiBand AirMouse/`.
+
+### Cách 2: chạy từ mã nguồn
+
 Cần: macOS 12 trở lên và **Xcode** hoặc **Command Line Tools** (`xcode-select --install`), để có Python 3 và trình biên dịch `clang`.
 
 ```bash
@@ -50,9 +62,13 @@ venv/bin/pip install -r requirements.txt
 open ~/Applications/"MiBand AirMouse.app"
 ```
 
-> **Phải clone vào đúng `~/airmouse`**: ứng dụng `MiBand AirMouse.app` khởi chạy mã nguồn từ thư mục này.
+> **Phải clone vào đúng `~/airmouse`**: ứng dụng `MiBand AirMouse.app` khởi chạy mã nguồn từ thư mục này. Cài đặt được lưu ở `~/airmouse/config.json`.
 
-Lần đầu mở app:
+Muốn tự đóng gói bản dựng sẵn: chạy `./build_release.sh` (arm64) hoặc `./build_release.sh x86_64`. Script tải một bản Python độc lập ([python-build-standalone](https://github.com/astral-sh/python-build-standalone)), kiểm tra mã SHA-256, rồi tạo file zip trong `dist/`.
+
+### Lần đầu mở app
+
+
 1. Cho phép **Bluetooth** khi macOS hỏi.
 2. Bật **MiBand AirMouse** trong *System Settings → Privacy & Security → Accessibility* (để app được di chuột và click).
 3. Màn hình **Thiết lập thiết bị** hiện ra: bấm **Quét mã QR…**, quét bằng Mi Fitness hoặc Xiaomi Home, bấm **Tìm vòng** rồi **Lưu và kết nối**.
@@ -60,7 +76,7 @@ Lần đầu mở app:
 
 Chi tiết từng bước và cách dùng cử chỉ có trong [hướng dẫn sử dụng](https://thanhhaiwork1998.github.io/miband-airmouse/).
 
-> Mỗi lần chạy lại `build_app.sh`, macOS coi đó là app mới: hãy **tắt rồi bật lại** quyền Accessibility cho MiBand AirMouse.
+> Mỗi lần chạy lại `build_app.sh` hoặc cài bản mới, macOS coi đó là app mới: hãy **tắt rồi bật lại** quyền Accessibility cho MiBand AirMouse.
 
 **Tuỳ chọn**: nếu muốn lấy token bằng tài khoản + mật khẩu (trong Terminal) thay vì mã QR, cài thêm công cụ gốc:
 
@@ -85,6 +101,7 @@ git clone https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor.git ~/
 | `window.py` | Cửa sổ điều khiển |
 | `setup_window.py`, `discovery.py`, `xiaomi_cloud.py` | Thiết lập lần đầu: quét vòng, đăng nhập Xiaomi bằng mã QR, lấy token |
 | `launcher.m`, `build_app.sh`, `make_icon.py` | Đóng gói `MiBand AirMouse.app` có biểu tượng trên Dock |
+| `build_release.sh` | Tạo bản dựng sẵn có kèm Python (zip để tải về) |
 | `xproto/` | Mã Python sinh từ các định nghĩa protobuf của Gadgetbridge |
 | `airmouse.py` | Công cụ dòng lệnh để chẩn đoán (`--probe`, `--diag`) |
 | `watch_source.py` | Phần nhận dữ liệu từ Apple Watch (đang phát triển) |
@@ -92,7 +109,7 @@ git clone https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor.git ~/
 
 ## Quyền riêng tư
 
-- Token của vòng chỉ lưu trên máy bạn, trong `~/airmouse/config.json` (chỉ tài khoản của bạn đọc được). File này nằm trong `.gitignore`. **Đừng chia sẻ nó.**
+- Token của vòng chỉ lưu trên máy bạn, trong `config.json` (bản dựng sẵn: `~/Library/Application Support/MiBand AirMouse/`, bản mã nguồn: `~/airmouse/`). Chỉ tài khoản của bạn đọc được file này, và nó nằm trong `.gitignore`. **Đừng chia sẻ nó.**
 - Đăng nhập bằng mã QR đi thẳng tới máy chủ của Xiaomi; app không thấy và không lưu mật khẩu của bạn.
 - Dữ liệu cảm biến chỉ được xử lý trên máy, không gửi đi đâu.
 
@@ -112,4 +129,4 @@ Dự án cá nhân, không liên quan tới Xiaomi. Xiaomi, Mi Band và Mi Fitne
 
 ### English
 
-MiBand AirMouse turns a **Xiaomi Smart Band 10** into an air mouse for macOS: point with your forearm to move the cursor, double-pinch thumb and index finger to click, pinch four times to scroll. It talks to the band directly over BLE (Xiaomi's encrypted "BLE V2" protocol, ported from Gadgetbridge) and streams the raw accelerometer/gyroscope through a hidden workout session. First-run setup fetches the band's auth key by QR login to your Xiaomi account. Install with the commands above (clone into `~/airmouse`). Licensed under AGPL-3.0.
+MiBand AirMouse turns a **Xiaomi Smart Band 10** into an air mouse for macOS: point with your forearm to move the cursor, double-pinch thumb and index finger to click, pinch four times to scroll. It talks to the band directly over BLE (Xiaomi's encrypted "BLE V2" protocol, ported from Gadgetbridge) and streams the raw accelerometer/gyroscope through a hidden workout session. First-run setup fetches the band's auth key by QR login to your Xiaomi account. Download the prebuilt app (Python bundled; arm64 or x86_64) from [Releases](https://github.com/thanhhaiwork1998/miband-airmouse/releases/latest); on first launch allow it under System Settings → Privacy & Security → Open Anyway, since it is not notarized. Or run from source with the commands above (clone into `~/airmouse`). Licensed under AGPL-3.0.

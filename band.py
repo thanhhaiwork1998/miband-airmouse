@@ -66,7 +66,8 @@ class Band:
         self.address = address
         self.companion = companion  # (device type, phone name, api level) sent during auth
         self.debug = debug
-        self.trace = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "trace.log"), "a") if debug else None
+        data = os.environ.get("AIRMOUSE_DATA", os.path.dirname(os.path.abspath(__file__)))
+        self.trace = open(os.path.join(data, "trace.log"), "a") if debug else None
         self._trace(f"=== new session companion={companion}")
         self.secret = bytes.fromhex(auth_key_hex.lower().replace("0x", ""))[:16]
         self.on_sensor = on_sensor

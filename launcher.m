@@ -1,6 +1,6 @@
 // MiBand AirMouse launcher: the app's Dock presence.
 //
-// Runs ~/airmouse/app.py as a child process (spawned, not exec'd, so this bundle stays the
+// Runs app.py (bundled in the prebuilt app, else ~/airmouse/app.py) as a child process (spawned, not exec'd, so this bundle stays the
 // "responsible" app: macOS reads the Bluetooth usage text from our Info.plist and files the
 // Bluetooth/Accessibility permissions under "MiBand AirMouse", not Python).
 // Clicking the Dock icon or switching to the app sends SIGUSR1 (show the control window);
@@ -30,6 +30,20 @@ static BOOL reapChild(void) {
     NSString *home = NSHomeDirectory();
     NSString *python = [home stringByAppendingPathComponent:@"airmouse/venv/bin/python"];
     NSString *script = [home stringByAppendingPathComponent:@"airmouse/app.py"];
+    // The prebuilt app carries its own Python and code (build_release.sh). Its bundle must
+    // stay unmodified, so settings and logs go to Application Support and no .pyc is written.
+    NSString *res = NSBundle.mainBundle.resourcePath;
+    NSString *bundled = [res stringByAppendingPathComponent:@"runtime/bin/python3"];
+    if ([NSFileManager.defaultManager isExecutableFileAtPath:bundled]) {
+        python = bundled;
+        script = [res stringByAppendingPathComponent:@"app/app.py"];
+        NSString *data = [home stringByAppendingPathComponent:@"Library/Application Support/MiBand AirMouse"];
+        setenv("AIRMOUSE_DATA", data.UTF8String, 1);
+        setenv("PYTHONDONTWRITEBYTECODE", "1", 1);
+        setenv("PYTHONNOUSERSITE", "1", 1);
+        unsetenv("PYTHONPATH");
+        unsetenv("PYTHONHOME");
+    }
     char *argv[] = {(char *)python.UTF8String, (char *)script.UTF8String, NULL};
     // Start the child with SIGUSR1 blocked: a "show window" arriving before Python has
     // installed its handler would otherwise kill it. Python unblocks it once ready.

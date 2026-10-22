@@ -24,9 +24,14 @@ from setup_window import SetupWindow
 from PyObjCTools import AppHelper
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CONFIG = os.path.join(HERE, "config.json")
-LOG = os.path.join(HERE, "app.log")
+# The prebuilt .app is read-only (writing inside it breaks its signature), so its launcher
+# points AIRMOUSE_DATA at ~/Library/Application Support; a source checkout keeps data here.
+DATA = os.environ.get("AIRMOUSE_DATA", HERE)
+os.makedirs(DATA, exist_ok=True)
+CONFIG = os.path.join(DATA, "config.json")
+LOG = os.path.join(DATA, "app.log")
 REQUESTS = set()  # "show" / "quit" asked for by the Dock launcher's signals
+PARENT = os.getppid()  # the Dock launcher; if it dies without signalling, don't linger
 DEFAULT_PROFILE = "Mặc định"
 PROFILE_SKIP = {"gestures_v2", "gestures_v3"}
 
@@ -1060,6 +1065,8 @@ class AirMouseApp(rumps.App):
         self.engine.start()
 
     def window_tick(self, _):
+        if os.getppid() != PARENT:
+            REQUESTS.add("quit")
         if "quit" in REQUESTS:
             REQUESTS.clear()
             self.quit(None)
@@ -1428,7 +1435,7 @@ class AirMouseApp(rumps.App):
         ]
         p = self.engine.pointer
         p.paused = True  # no cursor motion or clicks while recording
-        path = os.path.join(HERE, "pinch_test.csv")
+        path = os.path.join(DATA, "pinch_test.csv")
         try:
             rows = []
             for phase, seconds, title, text in steps:
