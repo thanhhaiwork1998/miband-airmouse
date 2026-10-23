@@ -6,6 +6,10 @@ cd "$(dirname "$0")"
 APP="${APP:-$HOME/Applications/MiBand AirMouse.app}"
 ARCH="${ARCH:-$(uname -m)}"
 VERSION="${VERSION:-$(sed -n 's/^VERSION = "\(.*\)".*/\1/p' version.py)}"  # from version.py
+# A fixed signing identity keeps macOS permissions across versions and lets the app update
+# itself (installer.py); without it the bundle is signed ad hoc.
+IDENTITY="${SIGN_IDENTITY:-MiBand AirMouse}"
+if security find-identity -p codesigning 2>/dev/null | grep -qF "\"$IDENTITY\""; then SIGN_AS="$IDENTITY"; else SIGN_AS=-; fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -34,5 +38,5 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-[ "${SIGN:-1}" = 0 ] || codesign --force --deep --sign - "$APP"
+[ "${SIGN:-1}" = 0 ] || codesign --force --deep --sign "$SIGN_AS" "$APP"
 echo "Built: $APP"

@@ -30,6 +30,15 @@ want=$(grep " $TARBALL\$" "$CACHE/SHA256SUMS-$PY_RELEASE" | cut -d' ' -f1)
 have=$(shasum -a 256 "$CACHE/$TARBALL" | cut -d' ' -f1)
 [ -n "$want" ] && [ "$want" = "$have" ] || { echo "checksum mismatch for $TARBALL"; exit 1; }
 
+# Releases must carry the fixed identity: the installed apps only accept updates signed by it
+IDENTITY="${SIGN_IDENTITY:-MiBand AirMouse}"
+if ! security find-identity -p codesigning 2>/dev/null | grep -qF "\"$IDENTITY\""; then
+  echo "No code signing identity \"$IDENTITY\" in the keychain (see README: Phát hành)."
+  [ "${ADHOC:-0}" = 1 ] || exit 1
+  echo "ADHOC=1: signing ad hoc - this build can't update itself or be updated from."
+  IDENTITY=-
+fi
+
 OUT="dist/$ARCH"
 APP="$OUT/MiBand AirMouse.app"
 rm -rf "$OUT"
@@ -58,7 +67,7 @@ find "$RES" -name __pycache__ -prune -exec rm -rf {} +
 # Precompile now: the signed bundle must never be written to at run time
 "${RUN[@]}" "$RES/runtime/bin/python3" -m compileall -q -j 0 "$RES/runtime/lib" "$RES/app" >/dev/null
 
-codesign --force --deep --sign - "$APP"
+codesign --force --deep --sign "$IDENTITY" "$APP"
 codesign --verify --deep --strict "$APP"
 ZIP="dist/MiBand-AirMouse-$VERSION-$ARCH.zip"
 rm -f "$ZIP"

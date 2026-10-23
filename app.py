@@ -23,6 +23,7 @@ from watch_source import WatchSource
 from window import ControlWindow
 from setup_window import SetupWindow
 from updates import UpdateChecker
+import installer
 from laser import LaserDot
 from version import VERSION
 from PyObjCTools import AppHelper
@@ -1194,6 +1195,8 @@ class AirMouseApp(rumps.App):
         self.cfg, self.settings = load_config()
         self.state = "off"
         self.update = None  # newer release found on GitHub (see updates.py)
+        self.update_auto = False  # it can be installed with one click (see installer.py)
+        self.update_status = None  # progress / error text while installing it
         # The menu bar list is kept short on purpose: everything else is in the control window
         # (the Dock icon opens it).
         self.pause_item = rumps.MenuItem("Tạm dừng", callback=self.pause)
@@ -1460,7 +1463,11 @@ class AirMouseApp(rumps.App):
 
     # ---- new releases (the window shows a notice; nothing is installed automatically) ----
     def _update_found(self, info):
-        self.update = info  # from the checker's thread; the timers pick it up
+        # From the checker's thread (codesign runs here, not in the window's refresh)
+        reason = installer.can_install(info)
+        if reason:
+            log(f"update {info['version']}: one-click install not possible ({reason})")
+        self.update_auto, self.update = reason is None, info
 
     def update_available(self):
         info = self.update
@@ -1468,8 +1475,31 @@ class AirMouseApp(rumps.App):
 
     def open_update(self, _):
         info = self.update
-        if info:
+        if not info or self.update_status and not self.update_status.startswith("Lỗi"):
+            return  # nothing to do, or already installing
+        if not self.update_auto:
             subprocess.run(["open", info["page"]])
+            return
+        self.update_status = "Đang tải…"
+        threading.Thread(target=self._install_update, args=(info,), daemon=True).start()
+
+    def _install_update(self, info):
+        """Background: download and check; then (main thread) swap and quit, the helper reopens."""
+        def progress(fraction, text):
+            self.update_status = text
+        try:
+            new = installer.prepare(info, progress)
+        except Exception as e:
+            log(f"update {info['version']} failed: {type(e).__name__}: {e}")
+            self.update_status, self.update_auto = f"Lỗi: {e}", False  # the button now opens the page
+            return
+        log(f"update {info['version']} verified, installing")
+        self.update_status = "Đang cài…"
+        AppHelper.callAfter(self._swap_and_quit, new)
+
+    def _swap_and_quit(self, new):
+        installer.install(new, PARENT, LOG)  # waits for the Dock launcher to exit
+        self.quit(None)
 
     def skip_update(self, _):
         if self.update:

@@ -38,7 +38,7 @@ Ngoài ra:
 - **Độ trễ tự điều chỉnh** theo chất lượng Bluetooth (thường ~120 ms) để con trỏ phản hồi nhanh mà không giật.
 - **Hồ sơ**: lưu bộ thông số và kết quả hiệu chỉnh cho từng người hoặc từng cách đeo.
 - Biểu tượng riêng trên Dock.
-- **Báo bản mới**: khi có bản phát hành mới trên GitHub, app hiện "Có bản mới" kèm nút tải về.
+- **Cập nhật một chạm**: khi có bản mới trên GitHub, app hiện "Có bản mới"; bấm **Cập nhật** là app tự tải, kiểm tra chữ ký, thay bản mới và mở lại, giữ nguyên quyền (bản dựng sẵn từ 1.6.0).
 
 ## Thiết bị hỗ trợ
 
@@ -60,6 +60,8 @@ Ngoài ra:
 3. Lần đầu mở, macOS sẽ chặn vì app chưa được Apple xác minh (app miễn phí, không có chữ ký trả phí). Bấm **Done**, vào *System Settings → Privacy & Security*, kéo xuống và bấm **Open Anyway**. Chỉ cần làm một lần.
 
 Bản dựng sẵn đã kèm Python và mọi thư viện, không cần cài thêm gì. Cài đặt của bạn được lưu ở `~/Library/Application Support/MiBand AirMouse/`.
+
+**Nâng cấp:** từ bản 1.6.0, bấm **Cập nhật** trong app khi có bản mới, không cần làm gì thêm. Đang dùng bản cũ hơn thì tải tay bản mới một lần (thoát app, kéo bản mới vào Applications, chọn Thay thế) và bật lại quyền **Accessibility** lần cuối.
 
 ### Cách 2: chạy từ mã nguồn
 
@@ -105,6 +107,15 @@ git clone https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor.git ~/
 - **Di chuyển**: chuyển động được chiếu lên mặt phẳng ngang/đứng của căn phòng nhờ hướng trọng lực, nên lia cả tay hay chống khuỷu tay đều cho kết quả đúng hướng. Mỗi mẫu được phát lại đúng nhịp theo dấu thời gian của cảm biến (120 khung hình/giây), kèm bộ lọc khử run tay và tự sửa độ trôi của gyro.
 - **Cử chỉ**: cú chụm ngón được nhận ra qua xung gyro rất ngắn mà vòng gần như không xoay, có bước xác nhận để tránh nhầm với lúc bắt đầu lia tay.
 
+## Phát hành (dành cho người duy trì dự án)
+
+Bản dựng sẵn được ký bằng chứng chỉ **"MiBand AirMouse"** (tự ký, tạo trong *Truy cập Chuỗi khoá → Trợ lý Chứng nhận → Tạo Chứng nhận…*, loại **Gốc tự ký / Ký mã**, để trống email). Các app đã cài chỉ nhận bản cập nhật ký bằng đúng chứng chỉ đó, và macOS nhờ nó mà giữ quyền qua các phiên bản, nên:
+
+- `build_release.sh` từ chối đóng gói khi không có chứng chỉ này (`ADHOC=1` để thử nghiệm, bản đó không tự cập nhật được).
+- **Sao lưu** chứng chỉ (xuất file .p12 có mật khẩu) và không bao giờ đưa nó lên GitHub. Mất chứng chỉ thì người dùng phải cài tay lại một lần.
+
+Các bước: đổi số trong `version.py` → `./build_release.sh` và `./build_release.sh x86_64` → tạo release trên GitHub với hai file zip trong `dist/`.
+
 ## Cấu trúc mã nguồn
 
 | File | Vai trò |
@@ -115,6 +126,7 @@ git clone https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor.git ~/
 | `laser.py` | Chấm đỏ của chế độ Trình chiếu |
 | `arm_view.py` | Mô phỏng tư thế cánh tay trong cửa sổ điều khiển |
 | `updates.py`, `version.py` | Kiểm tra bản mới trên GitHub; số phiên bản (script đóng gói đọc từ đây) |
+| `installer.py` | Cập nhật một chạm: tải, kiểm tra chữ ký, thay app và mở lại |
 | `setup_window.py`, `discovery.py`, `xiaomi_cloud.py` | Thiết lập lần đầu: quét vòng, đăng nhập Xiaomi bằng mã QR, lấy token |
 | `launcher.m`, `build_app.sh`, `make_icon.py` | Đóng gói `MiBand AirMouse.app` có biểu tượng trên Dock |
 | `build_release.sh` | Tạo bản dựng sẵn có kèm Python (zip để tải về) |

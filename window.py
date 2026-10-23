@@ -373,7 +373,14 @@ class ControlWindow(NSObject):
             self.profile_popup.selectItemWithTitle_(app.active_profile())
         self.profile_dirty.setStringValue_("• chưa lưu" if app.profile_dirty() else "")
         info = app.update_available()
-        self.update_label.setStringValue_(f"Có bản mới {info['version']}" if info else "")
+        busy = app.update_status is not None and not app.update_status.startswith("Lỗi")
+        status = app.update_status
+        shown = "Cập nhật lỗi" if status and status.startswith("Lỗi") else status  # the reason is in the tooltip
+        self.update_label.setStringValue_((shown or f"Có bản mới {info['version']}") if info else "")
+        self.update_label.setToolTip_(app.update_status)
+        self.buttons["open_update"].setTitle_("Cập nhật" if app.update_auto else "Tải về…")
+        for b in (self.buttons["open_update"], self.buttons["skip_update"]):
+            b.setEnabled_(not busy)
         for v in (self.update_label, self.buttons["open_update"], self.buttons["skip_update"]):
             v.setHidden_(info is None)
 
