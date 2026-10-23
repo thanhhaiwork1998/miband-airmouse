@@ -269,7 +269,7 @@ class Band:
             self.dec_key, self.enc_key, _dec_nonce, self.enc_nonce = auth_keys(self.secret, self.phone_nonce, dv.nonce)
             expected = hmac.new(self.dec_key, dv.nonce + self.phone_nonce, hashlib.sha256).digest()
             if expected != dv.hmac:
-                self.auth_failed = "Sai auth key (vong tu choi). Lay lai key bang token_extractor."
+                self.auth_failed = "Sai auth key (vong tu choi). Vao Thiet lap thiet bi va quet ma QR lai."
                 self.authed.set()
                 return
             phone_type, phone_name, api_level = self.companion

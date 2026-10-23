@@ -247,8 +247,8 @@ html { scroll-behavior: smooth; }
           <li><div><h3>Bấm “Lưu và kết nối”</h3><p>App lưu thông tin và kết nối ngay. Vòng sẽ hiện màn hình tập luyện: đó là “buổi tập ẩn” app dùng để đọc cảm biến, không ảnh hưởng dữ liệu sức khoẻ của bạn.</p></div></li>
         </ol>
       </div>
-      <p class="muted">Muốn đổi sang vòng khác, đổi token hay quét lại, bấm <b>Thiết lập thiết bị…</b> trong cửa sổ điều khiển hoặc menu ⌚︎.</p>
-      <p class="note">Khi có bản mới trên GitHub, dòng <b>Có bản mới</b> hiện bên phải hàng <b>Điều khiển</b>, kèm nút <b>Tải về…</b> và <b>Bỏ qua</b>. App chỉ báo, không tự cài gì. Tắt việc tự kiểm tra bằng mục <b>Tu kiem tra ban moi</b> trên thanh menu.</p>
+      <p class="muted">Muốn đổi sang vòng khác, đổi token hay quét lại, bấm <b>Thiết lập thiết bị…</b> trong cửa sổ điều khiển.</p>
+      <p class="note">Khi có bản mới trên GitHub, dòng <b>Có bản mới</b> hiện bên phải hàng <b>Điều khiển</b>, kèm nút <b>Tải về…</b> và <b>Bỏ qua</b>. App chỉ báo, không tự cài gì. Tắt việc tự kiểm tra bằng ô <b>Tự kiểm tra bản mới</b> ngay dưới hàng Điều khiển.</p>
     </section>
 
     <section id="hieu-chinh">
@@ -285,7 +285,7 @@ html { scroll-behavior: smooth; }
 
     <section id="trang-thai">
       <h2><span class="n">6</span>Đọc biểu tượng trạng thái</h2>
-      <p>Biểu tượng trên thanh menu cho biết app đang ở trạng thái nào:</p>
+      <p>Biểu tượng ⌚︎ trên thanh menu cho biết app đang ở trạng thái nào. Bấm vào nó chỉ có hai mục: <b>Tạm dừng</b> (hoặc <b>Tiếp tục</b>) và <b>Thoát</b>; mọi cài đặt khác nằm trong cửa sổ điều khiển, mở bằng biểu tượng app trên Dock.</p>
       <div class="icons">
         <div class="icon-row"><span class="glyph">⌚︎…</span><span>Đang kết nối vòng</span></div>
         <div class="icon-row"><span class="glyph">⌚︎◌</span><span>Giữ yên tay để app đo điểm đứng yên</span></div>
@@ -326,14 +326,14 @@ html { scroll-behavior: smooth; }
             <use href="#arm" x="10" y="70" width="210" height="86"/>
             <circle class="soft" cx="262" cy="64" r="38"/>
             <circle cx="262" cy="64" r="30" fill="none" stroke="var(--accent)" stroke-width="5" stroke-dasharray="188" stroke-dashoffset="0" stroke-linecap="round"/>
-            <text class="lbl" x="262" y="70" text-anchor="middle">1 giây</text>
+            <text class="lbl" x="262" y="70" text-anchor="middle">dừng tay</text>
             <text class="lbl-muted" x="262" y="124" text-anchor="middle">giữ yên tay</text>
             <text x="262" y="160" text-anchor="middle" font-size="26" fill="var(--accent)">⚓</text>
           </svg>
           <div class="body">
             <span class="what">Neo chuột</span>
-            <h3>Dừng tay khoảng 1 giây</h3>
-            <p>Con trỏ khoá tại chỗ (biểu tượng ⚓). Rung tay hay lực chụm ngón không làm nó xê dịch. Đưa tay đi có chủ ý là con trỏ chạy tiếp.</p>
+            <h3>Dừng tay một chút</h3>
+            <p>Con trỏ khoá tại chỗ (biểu tượng ⚓). Rung tay hay lực chụm ngón không làm nó xê dịch. Đưa tay đi có chủ ý là con trỏ chạy tiếp. Mặc định dừng 1 giây là neo; chỉnh nhanh hoặc chậm hơn ở thanh <b>Thời gian neo</b> (0,3–2 giây).</p>
           </div>
         </article>
 
@@ -425,7 +425,7 @@ html { scroll-behavior: smooth; }
 
     <section id="che-do">
       <h2><span class="n">8</span>Chế độ Trình chiếu và Media</h2>
-      <p>Hàng <b>Điều khiển</b> ở đầu cửa sổ (hoặc mục <b>Che do dieu khien</b> trên thanh menu) chọn vòng tay dùng để làm gì. Ở <b>Trình chiếu</b> và <b>Media</b>, con trỏ chuột đứng yên và cử chỉ trở thành lệnh, nên bạn có thể vừa nói vừa cầm vòng mà không lo chuột chạy lung tung.</p>
+      <p>Hàng <b>Điều khiển</b> ở đầu cửa sổ chọn vòng tay dùng để làm gì. Ở <b>Trình chiếu</b> và <b>Media</b>, con trỏ chuột đứng yên và cử chỉ trở thành lệnh, nên bạn có thể vừa nói vừa cầm vòng mà không lo chuột chạy lung tung.</p>
       <div class="table-wrap">
         <table>
           <tr><th>Cử chỉ</th><th>Chuột</th><th>Trình chiếu</th><th>Media</th></tr>
@@ -443,9 +443,9 @@ html { scroll-behavior: smooth; }
         <li><b>Lia dứt khoát:</b> một cú lia nhanh, dài khoảng 10° trở lên, đi gần thẳng một hướng. Rê tay chậm hay lia chéo không tính.</li>
         <li><b>Đưa tay về từ từ:</b> trong 0,8 giây sau một cú lia, động tác đưa tay về bị bỏ qua. Sau đó, đưa tay về chậm để không thành cú lia ngược lại.</li>
         <li><b>Trình chiếu</b> gửi phím mũi tên phải / trái, chạy được với Keynote, PowerPoint, Google Slides và trình xem PDF. Hãy để cửa sổ trình chiếu ở phía trước.</li>
-        <li><b>Chấm đỏ:</b> ở Trình chiếu, di tay là di một chấm đỏ như bút laser, nổi trên cả slide toàn màn hình và đi được sang máy chiếu. Tay đứng yên 3 giây thì chấm mờ dần. Khi bạn lia để chuyển slide, chấm tự về chỗ cũ. Tắt bằng mục <b>Trinh chieu: cham do theo tay</b> trên thanh menu.</li>
+        <li><b>Chấm đỏ:</b> ở Trình chiếu, di tay là di một chấm đỏ như bút laser, nổi trên cả slide toàn màn hình và đi được sang máy chiếu. Tay đứng yên 3 giây thì chấm mờ dần. Khi bạn lia để chuyển slide, chấm tự về chỗ cũ. Tắt bằng ô <b>Trình chiếu: chấm đỏ theo tay</b> dưới hàng Điều khiển.</li>
         <li><b>Media</b> dùng phím phát nhạc của Mac, nên điều khiển được Apple Music, Spotify, YouTube trên trình duyệt…</li>
-        <li><b>Núm âm lượng:</b> ở Media, chụm 2 lần để bật (biểu tượng ⌚︎🔊), rồi xoay cổ tay như vặn núm: khoảng 6° là một nấc, ô âm lượng của macOS hiện lên. Chụm 2 lần nữa để tắt; để yên 10 giây núm cũng tự tắt. Xoay bị ngược chiều thì bật <b>Media: dao chieu xoay am luong</b> trên thanh menu. Vì phải chờ xem có lần chụm thứ 3 không, chụm 2 lần ở Media phản hồi chậm hơn khoảng nửa giây.</li>
+        <li><b>Núm âm lượng:</b> ở Media, chụm 2 lần để bật (biểu tượng ⌚︎🔊), rồi xoay cổ tay như vặn núm: khoảng 6° là một nấc, ô âm lượng của macOS hiện lên. Chụm 2 lần nữa để tắt; để yên 10 giây núm cũng tự tắt. Xoay bị ngược chiều thì bật ô <b>Media: đảo chiều xoay âm lượng</b> dưới hàng Điều khiển. Vì phải chờ xem có lần chụm thứ 3 không, chụm 2 lần ở Media phản hồi chậm hơn khoảng nửa giây.</li>
         <li>Chụm luôn hoạt động ở hai chế độ này, kể cả khi ô <b>Click trái</b> đang tắt. Chế độ đang chọn không lưu theo hồ sơ.</li>
       </ul>
     </section>
@@ -453,9 +453,10 @@ html { scroll-behavior: smooth; }
     <section id="tinh-chinh">
       <h2><span class="n">9</span>Tinh chỉnh và hồ sơ</h2>
       <p>Bấm biểu tượng app trên Dock để mở cửa sổ điều khiển. Mọi thanh trượt có hiệu lực ngay khi kéo. Phần <b>Đo trực tiếp</b> cho thấy lực mỗi cử chỉ so với ngưỡng: thanh chuyển vàng khi vượt ngưỡng, nhờ vậy bạn biết nên chỉnh lên hay xuống.</p>
+      <p>Phần <b>Tư thế cánh tay</b> vẽ trực tiếp cánh tay theo cảm biến: <b>nâng / hạ</b> (nhìn ngang, khi đang ở chế độ cuộn có thêm vạch cam là độ cao lúc bắt đầu), <b>trái / phải</b> (nhìn từ trên), <b>xoay cổ tay</b> (kim chỉ hướng lòng bàn tay, chuyển xanh lá khi ngửa tay, vòng cam khi núm âm lượng bật) và <b>chuyển động</b> (chấm chỉ hướng tay đang di, vòng xanh khi neo, loé cam mỗi khi app nhận ra một cú chụm). Vòng không có la bàn, nên góc trái / phải được cộng dồn và từ từ tự về giữa; bấm vào khung hình để lấy hướng hiện tại làm giữa.</p>
       <figure class="shot">
-        <img src="img/control.png" width="860" height="736" alt="Cửa sổ điều khiển với các thanh đo trực tiếp, thanh trượt và công tắc cử chỉ">
-        <figcaption>Cửa sổ điều khiển. Thu nhỏ hoặc đóng thì app vẫn chạy trên thanh menu ⌚︎.</figcaption>
+        <img src="img/control.png" width="860" height="804" alt="Cửa sổ điều khiển với các thanh đo trực tiếp, thanh trượt và công tắc cử chỉ">
+        <figcaption>Cửa sổ điều khiển. Ẩn hoặc đóng thì app vẫn chạy (biểu tượng ⌚︎ trên thanh menu); bấm biểu tượng app trên Dock để mở lại.</figcaption>
       </figure>
       <div class="table-wrap">
         <table>

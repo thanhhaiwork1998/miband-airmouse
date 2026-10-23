@@ -14,7 +14,7 @@ Lia cẳng tay để di chuyển con trỏ, chụm ngón tay để click, chụm
 | Cử chỉ | Tác dụng |
 |---|---|
 | Lia hoặc gạt cẳng tay | Di chuyển con trỏ (mượt, có tăng tốc khi lia nhanh) |
-| Dừng tay khoảng 1 giây | Neo con trỏ tại chỗ |
+| Dừng tay một chút (mặc định 1 giây, chỉnh ở **Thời gian neo**) | Neo con trỏ tại chỗ |
 | Chụm ngón cái vào ngón trỏ 2 lần | Click trái |
 | Chụm 4 lần | Bật chế độ cuộn: nâng tay cao hơn lúc chụm thì trang tự cuộn lên, hạ tay thì tự cuộn xuống; lệch càng nhiều cuộn càng nhanh |
 | Vẩy tay thật nhanh | Thoát chế độ cuộn |
@@ -34,7 +34,8 @@ Lia cẳng tay để di chuyển con trỏ, chụm ngón tay để click, chụm
 
 Ngoài ra:
 - **Thiết lập lần đầu bằng mã QR**: quét bằng camera điện thoại (hoặc đăng nhập ngay trên Mac) vào tài khoản Xiaomi để app tự lấy token của vòng. Mật khẩu chỉ nhập trên trang của Xiaomi, app không thấy.
-- **Cửa sổ điều khiển**: đo trực tiếp lực từng cử chỉ so với ngưỡng, thanh trượt cho mọi thông số, chạy nền trên thanh menu.
+- **Cửa sổ điều khiển**: đo trực tiếp lực từng cử chỉ so với ngưỡng, **mô phỏng tư thế cánh tay** (nâng/hạ, trái/phải, xoay cổ tay, chuyển động), thanh trượt cho mọi thông số. App chạy nền; thanh menu chỉ có Tạm dừng và Thoát.
+- **Độ trễ tự điều chỉnh** theo chất lượng Bluetooth (thường ~120 ms) để con trỏ phản hồi nhanh mà không giật.
 - **Hồ sơ**: lưu bộ thông số và kết quả hiệu chỉnh cho từng người hoặc từng cách đeo.
 - Biểu tượng riêng trên Dock.
 - **Báo bản mới**: khi có bản phát hành mới trên GitHub, app hiện "Có bản mới" kèm nút tải về.
@@ -112,6 +113,7 @@ git clone https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor.git ~/
 | `band.py` | Giao thức Bluetooth với Mi Band (xác thực, mã hoá, buổi tập ẩn) |
 | `window.py` | Cửa sổ điều khiển |
 | `laser.py` | Chấm đỏ của chế độ Trình chiếu |
+| `arm_view.py` | Mô phỏng tư thế cánh tay trong cửa sổ điều khiển |
 | `updates.py`, `version.py` | Kiểm tra bản mới trên GitHub; số phiên bản (script đóng gói đọc từ đây) |
 | `setup_window.py`, `discovery.py`, `xiaomi_cloud.py` | Thiết lập lần đầu: quét vòng, đăng nhập Xiaomi bằng mã QR, lấy token |
 | `launcher.m`, `build_app.sh`, `make_icon.py` | Đóng gói `MiBand AirMouse.app` có biểu tượng trên Dock |

@@ -39,16 +39,8 @@ PARENT = os.getppid()  # the Dock launcher; if it dies without signalling, don't
 DEFAULT_PROFILE = "Mặc định"
 PROFILE_SKIP = {"gestures_v2", "gestures_v3", "control_mode", "update_check", "skip_version"}  # the mode is a moment's choice, not tuning
 
-SPEEDS = {"Cham": 300, "Vua": 600, "Nhanh": 1000}
-ACCELS = {"Tat": 0.0, "Vua": 1.5, "Manh": 3.0, "Rat manh": 5.0}
-MODES = {"Theo mat phang (khuyen dung)": "plane", "Theo truc cam bien (cu)": "axes"}
-CONTROL_MODES = {"Chuot": "mouse", "Trinh chieu": "slides", "Media (nhac, video)": "media"}
-CLICK_LEVELS = {"Nhay": 2.5, "Vua": 4.0, "Cung": 6.0}  # twist rate (gyro units) that counts as a click
 # Jolt (m/s^2) above which a transient is a wrist tap rather than a pinch; must stay between
 # the user's strongest pinch (1.2) and weakest tap (3.3).
-TAP_LEVELS = {"Nhay": 2.0, "Vua": 2.5, "Cung": 3.0}
-PINCH_LEVELS = {"Nhay": 0.06, "Vua": 0.1, "Cung": 0.15}  # gyro jerk (rad/s per sample)
-SCROLL_SPEEDS = {"Cham": 800, "Vua": 1500, "Nhanh": 3000}  # page pixels per rad of flick
 DEFAULTS = {"speed": 600, "accel": 3.0, "deadzone": 0.05, "click_enabled": False, "click_threshold": 4.0,
             "swap_buttons": False, "axis_x": "z", "invert_x": True, "axis_y": "y", "invert_y": False}
 AXIS = {"x": 0, "y": 1, "z": 2}
@@ -95,6 +87,12 @@ RELEASE_RATIO = 0.45   # a 2nd pinch this much weaker than the 1st is the finger
 # A wrist tap is a ~0.3s burst: a pinch-sized precursor ~0.1s before the main jolt, the jolt,
 # then echoes. Collecting over 0.15s merges the burst into one event classified by its peak.
 PLAYBACK_DELAY = 0.15  # s; one 0.1s batch of samples plus Bluetooth lateness (measured p97 ~50ms)
+# The delay adapts to the Bluetooth link: what each batch needed (its own span + how late it
+# arrived) at the DELAY_PCT percentile of the last ~30 s, plus a margin. Covering every batch
+# would cost more delay than the fixed value (the link hiccups ~70 ms now and then), so the
+# rare later batch just plays a few ms late; the delay follows the link up fast, down slowly.
+DELAY_MIN, DELAY_MAX = 0.09, 0.30
+DELAY_PCT, DELAY_MARGIN, DELAY_WINDOW = 0.90, 0.005, 300
 FRAME_RATE = 120       # cursor updates per second
 # Smoothing levels: (cutoff Hz when the hand is still, extra Hz per rad/s of speed)
 SMOOTHING = {"Tat": None, "Vua": (3.0, 10.0), "Manh": (1.5, 6.0)}
@@ -127,6 +125,8 @@ SWIPE_GUARD = 0.8      # s after a swipe in which the hand's way back is ignored
 SWIPE_WINDUP = 0.2     # s of a swipe's start, below SWIPE_START, that already moved the red dot
 VOLUME_STEPS = 2       # volume key presses per swipe up/down
 LASER_SHOW = 3.0       # s the presenter's red dot stays after the hand stops (then fades)
+YAW_LEAK = 120.0       # s; the arm view's left/right angle has no absolute reference (no compass),
+                       # so it drifts slowly back to centre instead of drifting away with the gyro
 # Media mode's volume knob (two pinches on/off): turning the wrist steps the volume
 VOLUME_TURN = 0.1      # rad (~6 deg) of wrist turn per volume step (macOS has 16)
 VOLUME_DEAD = 0.1      # rad/s of turning ignored (tremor, slow drift)
@@ -270,6 +270,9 @@ class Pointer:
         self.queue = deque()      # (play time, dx, dy) per sensor sample
         self.cursor = None        # our sub-pixel cursor position
         self.clock_offset = None  # local time minus band time
+        self.delay = PLAYBACK_DELAY  # adapted from the batches' lateness (see DELAY_PCT)
+        self.needs = deque(maxlen=DELAY_WINDOW)
+        self.delay_logged = 0.0
         self.last_dev_ts = None
         self.smoother = Smoother()
         self.last_batch = None
@@ -303,6 +306,9 @@ class Pointer:
         self.joy_drop = 0.0        # integrated hand drop, when gravity can't tell (sensor-axis mode)
         self.stroke = None         # [dx, dy, peak speed, start play time] of a possible swipe
         self.swipe_guard = 0.0
+        self.live_motion = (0.0, 0.0)  # smoothed hand speed in screen directions, for the arm view
+        self.pinch_flash = 0.0     # when the last pinch was felt (the arm view flashes)
+        self.yaw = 0.0             # sideways arm angle for the arm view, rad (+ = right), see YAW_LEAK
         self.volume_mode = False   # media mode: the wrist is a volume knob
         self.volume_turn = 0.0     # rad turned since the last volume step
         self.volume_since = 0.0    # last volume step (or switching the knob on)
@@ -352,6 +358,7 @@ class Pointer:
     def rezero(self):
         """Forget the gyro drift; it is re-measured the next time the hand rests."""
         self.bias, self.recent = None, []
+        self.yaw = 0.0
         self.queue.clear()
         self.smoother.reset()
         self.calib_start = time.monotonic()
@@ -510,6 +517,10 @@ class Pointer:
             else:
                 gx, gy = w[ax], w[ay]
                 inv_x, inv_y = self.s["invert_x"], self.s["invert_y"]
+            sx, sy = gx * (-1 if inv_x else 1), gy * (-1 if inv_y else 1)  # screen right / down
+            lm = self.live_motion
+            self.live_motion = (0.85 * lm[0] + 0.15 * sx, 0.85 * lm[1] + 0.15 * sy)
+            self.yaw = max(-math.pi, min(math.pi, self.yaw * math.exp(-dt / YAW_LEAK) + sx * dt))
             if not mouse:
                 # Presenter / media: the cursor stays put. Swipes are commands; the anchor still
                 # runs, so a resting hand's double pinch is heard.
@@ -551,12 +562,27 @@ class Pointer:
         prev = self.last_dev_ts
         if not prev or not 0 < ts[0] - prev < 200_000:
             prev = ts[0] - fallback_dt * 1e6
+        # Its first sample starts playing at the start of its own interval, so this batch must
+        # be in hand that long before its last sample's play time - plus however late it came.
+        self._adapt_delay((ts[-1] - prev) / 1e6 + max(0.0, offset - self.clock_offset), now)
         out = []
         for t in ts:
             out.append((t / 1e6 + self.clock_offset, min(max((t - prev) / 1e6, 0.001), 0.05)))
             prev = t
         self.last_dev_ts = ts[-1]
         return out
+
+    def _adapt_delay(self, need, now):
+        self.needs.append(need)
+        if len(self.needs) < 30:
+            return  # too few batches to judge yet: keep the safe default
+        ranked = sorted(self.needs)
+        target = min(max(ranked[int(DELAY_PCT * (len(ranked) - 1))] + DELAY_MARGIN, DELAY_MIN), DELAY_MAX)
+        self.delay += (target - self.delay) * (0.2 if target > self.delay else 0.02)
+        if now - self.delay_logged > 30:
+            self.delay_logged = now
+            log(f"playback delay {self.delay * 1000:.0f} ms (median need {ranked[len(ranked) // 2] * 1000:.0f}, "
+                f"p{DELAY_PCT * 100:.0f} {ranked[int(DELAY_PCT * (len(ranked) - 1))] * 1000:.0f}, max {ranked[-1] * 1000:.0f})")
 
     def _palm_dir(self):
         """Unit direction of gravity across the forearm (which way the palm faces), or None
@@ -800,6 +826,8 @@ class Pointer:
         elif kind == "tap":
             self.last_tap = start
         log(f"{kind or 'transient'} jolt={jolt:.2f} jerk={jerk:.3f} rate={rate:.2f} drift={drift:.2f}")
+        if kind == "pinch":
+            self.pinch_flash = time.monotonic()
         enabled = kind and (self.s[f"{kind}_enabled"] or kind == "pinch" and self.s["control_mode"] != "mouse")
         if not enabled:
             return
@@ -972,9 +1000,9 @@ class Pointer:
         log(f"click {'right' if right else 'left'} x{count}")
 
     def take_motion(self, now):
-        """Sum of queued cursor motion that is due by now - PLAYBACK_DELAY. The delay is one
+        """Sum of queued cursor motion that is due by now - self.delay. The delay is one
         batch plus jitter, so every sample is in hand by the time it is due."""
-        q, due = self.queue, now - PLAYBACK_DELAY
+        q, due = self.queue, now - self.delay
         while q and q[0][0] < due - 0.5:  # stale (e.g. after a pause); drop rather than lurch
             q.popleft()
         dx = dy = sc = 0.0
@@ -1029,7 +1057,7 @@ class Pointer:
         """Presenter mode: the hand's motion moves the red dot (drawn by LaserDot) instead of
         the cursor, anywhere on the connected displays (slides are often on a projector)."""
         Q = Quartz
-        due = now - PLAYBACK_DELAY  # the play time of what take_motion just returned
+        due = now - self.delay  # the play time of what take_motion just returned
         if self.laser_rewind is not None:
             t0, self.laser_rewind = self.laser_rewind, None
             self.queue = deque(e for e in self.queue if e[0] - e[3] < t0)  # the swipe's unplayed part
@@ -1165,86 +1193,15 @@ class AirMouseApp(rumps.App):
         super().__init__("AirMouse", title=self.ICONS["off"], quit_button=None)
         self.cfg, self.settings = load_config()
         self.state = "off"
-        self.status_item = rumps.MenuItem("Da tat")
         self.update = None  # newer release found on GitHub (see updates.py)
-        self.update_item = rumps.MenuItem(f"Kiem tra ban moi (dang dung {VERSION})", callback=self.update_menu)
-        self.update_check_item = rumps.MenuItem("Tu kiem tra ban moi", callback=self.toggle_update_check)
-        self.toggle_item = rumps.MenuItem("Bat chuot bay", callback=self.toggle)
-        self.pause_item = rumps.MenuItem("Tam dung", callback=self.pause)
-        self.click_item = rumps.MenuItem("Click phai bang van tay", callback=self.toggle_click)
-        self.peak_item = rumps.MenuItem("Luc van gan day: -")
-        self.anchor_item = rumps.MenuItem("Neo chuot khi dung tay 1 giay", callback=self.toggle_anchor)
-        self.pinch_item = rumps.MenuItem("Click trai bang chum ngon 2 lan", callback=self.toggle_pinch)
-        self.pinch_peak_item = rumps.MenuItem("Luc chum gan day: -")
-        pinch_menu = rumps.MenuItem("Do nhay chum")
-        for name in PINCH_LEVELS:
-            pinch_menu.add(rumps.MenuItem(name, callback=self.set_pinch_level))
-        self.scroll_item = rumps.MenuItem("Cuon trang: ngua tay + hat len", callback=self.toggle_scroll)
-        scroll_menu = rumps.MenuItem("Toc do cuon")
-        for name in SCROLL_SPEEDS:
-            scroll_menu.add(rumps.MenuItem(name, callback=self.set_scroll_speed))
-        self.scroll_invert_item = rumps.MenuItem("Dao chieu cuon", callback=self.toggle_scroll_invert)
-        self.drag_item = rumps.MenuItem("Che do cuon: chum 4 lan, vay tay de thoat", callback=self.toggle_drag)
-        self.tap_item = rumps.MenuItem("Click phai bang go co tay 2 lan", callback=self.toggle_tap)
-        self.tap_peak_item = rumps.MenuItem("Luc go gan day: -")
-        tap_menu = rumps.MenuItem("Do nhay go")
-        for name in TAP_LEVELS:
-            tap_menu.add(rumps.MenuItem(name, callback=self.set_tap_level))
-        speed_menu = rumps.MenuItem("Toc do")
-        for name, value in SPEEDS.items():
-            speed_menu.add(rumps.MenuItem(name, callback=self.set_speed))
-        smooth_menu = rumps.MenuItem("Do muot (khu run tay)")
-        for name in SMOOTHING:
-            smooth_menu.add(rumps.MenuItem(name, callback=self.set_smoothing))
-        accel_menu = rumps.MenuItem("Tang toc khi lia nhanh")
-        for name, value in ACCELS.items():
-            accel_menu.add(rumps.MenuItem(name, callback=self.set_accel))
-        click_menu = rumps.MenuItem("Do nhay click")
-        for name, value in CLICK_LEVELS.items():
-            click_menu.add(rumps.MenuItem(name, callback=self.set_click_level))
-        control_menu = rumps.MenuItem("Che do dieu khien")
-        for name in CONTROL_MODES:
-            control_menu.add(rumps.MenuItem(name, callback=self.set_control_mode))
-        control_menu.add(None)
-        self.laser_item = rumps.MenuItem("Trinh chieu: cham do theo tay", callback=self.toggle_laser)
-        control_menu.add(self.laser_item)
-        self.volume_invert_item = rumps.MenuItem("Media: dao chieu xoay am luong", callback=self.toggle_volume_invert)
-        control_menu.add(self.volume_invert_item)
-        mode_menu = rumps.MenuItem("Che do di chuyen")
-        for name in MODES:
-            mode_menu.add(rumps.MenuItem(name, callback=self.set_mode))
-        self.menu = [
-            self.status_item,
-            rumps.MenuItem("Mo cua so dieu khien", callback=lambda _: self.window_ctl.show()),
-            rumps.MenuItem("Thiet lap thiet bi...", callback=self.open_setup),
-            rumps.MenuItem("Ho so"), None,
-            self.toggle_item, self.pause_item, None,
-            control_menu, None,
-            mode_menu, speed_menu, accel_menu, smooth_menu, None,
-            self.anchor_item, self.pinch_item, pinch_menu, self.pinch_peak_item,
-            self.tap_item, tap_menu, self.tap_peak_item, None,
-            self.scroll_item, self.drag_item, scroll_menu, self.scroll_invert_item, None,
-            self.click_item, click_menu,
-            rumps.MenuItem("Doi click trai/phai", callback=self.swap_buttons),
-            rumps.MenuItem("Dao chieu trai/phai", callback=self.flip_x),
-            rumps.MenuItem("Dao chieu len/xuong", callback=self.flip_y),
-            rumps.MenuItem("Bo qua dua tay toi/lui", callback=self.toggle_push),
-            self.peak_item, None,
-            rumps.MenuItem("Hieu chinh huong...", callback=self.calibrate),
-            rumps.MenuItem("Do thu click chum ngon...", callback=self.pinch_test),
-            rumps.MenuItem("Dat lai diem dung yen (khi chuot troi)", callback=self.rezero),
-            rumps.MenuItem("Mo thu muc cai dat", callback=lambda _: os.system(f'open "{DATA}"')),
-            None,
-            self.update_item, self.update_check_item,
-            None,
-            rumps.MenuItem("Thoat", callback=self.quit),
-        ]
-        self.status_item.set_callback(None)
+        # The menu bar list is kept short on purpose: everything else is in the control window
+        # (the Dock icon opens it).
+        self.pause_item = rumps.MenuItem("Tạm dừng", callback=self.pause)
+        self.menu = [self.pause_item, None, rumps.MenuItem("Thoát", callback=self.quit)]
         self.dirty = False  # settings changed in the window, saved by the next tick
         self._trusted, self._trust_checked = True, float("-inf")  # see trusted()
         self.engine = Engine(self.cfg, self.settings, self.set_status)
         self.updater = UpdateChecker(self._update_found, log, lambda: self.settings["update_check"])
-        self.rebuild_profile_menu()
         self.window_ctl = ControlWindow.alloc().initWithApp_(self)
         self.setup_ctl = SetupWindow.alloc().initWithApp_(self)
         self.refresh_checks()
@@ -1314,14 +1271,6 @@ class AirMouseApp(rumps.App):
         p = self.engine.pointer
         on = p.laser_on() and not p.paused and self.state == "active"
         self.laser_dot.update(p.laser if on else None, time.monotonic() - p.laser_moved, LASER_SHOW)
-
-    def toggle_volume_invert(self, _):
-        self.settings["volume_invert"] = not self.settings["volume_invert"]
-        self.save()
-
-    def toggle_laser(self, _):
-        self.settings["laser_enabled"] = not self.settings["laser_enabled"]
-        self.save()
 
     def trusted(self):
         """Whether macOS lets us post mouse events. Without it they are dropped silently, so
@@ -1395,12 +1344,7 @@ class AirMouseApp(rumps.App):
             self.save()
         state ="paused" if (self.engine.pointer.paused and self.state == "active") else self.state
         self.title = self.ICONS.get(state, "⌚︎")
-        self.status_item.title = getattr(self, "status_text", "Da tat")
-        self.toggle_item.title = "Tat chuot bay" if self.state != "off" else "Bat chuot bay"
         p = self.engine.pointer
-        self.peak_item.title = f"Luc van gan day: {p.last_peak:.1f} (nguong {self.settings['click_threshold']})"
-        self.tap_peak_item.title = f"Luc go gan day: {p.live_tap:.1f} (nguong {self.settings['tap_threshold']})"
-        self.pinch_peak_item.title = f"Luc chum gan day: {p.live_pinch:.2f} (nguong {self.settings['pinch_threshold']})"
         mode = self.settings["control_mode"]
         if state == "active" and mode == "media" and p.volume_mode:
             self.title = "⌚︎🔊"
@@ -1414,40 +1358,8 @@ class AirMouseApp(rumps.App):
             self.title = "⌚︎⚓"
 
     def refresh_checks(self):
-        for name, value in SPEEDS.items():
-            self.menu["Toc do"][name].state = int(self.settings["speed"] == value)
-        for name in SMOOTHING:
-            self.menu["Do muot (khu run tay)"][name].state = int(self.settings["smoothing"] == name)
-        for name, value in ACCELS.items():
-            self.menu["Tang toc khi lia nhanh"][name].state = int(self.settings["accel"] == value)
-        for name, value in CLICK_LEVELS.items():
-            self.menu["Do nhay click"][name].state = int(self.settings["click_threshold"] == value)
-        for name, value in MODES.items():
-            self.menu["Che do di chuyen"][name].state = int(self.settings["mode"] == value)
-        for name, value in CONTROL_MODES.items():
-            self.menu["Che do dieu khien"][name].state = int(self.settings["control_mode"] == value)
-        self.click_item.state = int(self.settings["click_enabled"])
-        self.anchor_item.state = int(self.settings["anchor_enabled"])
-        self.tap_item.state = int(self.settings["tap_enabled"])
-        self.scroll_item.state = int(self.settings["scroll_enabled"])
-        self.scroll_invert_item.state = int(self.settings["scroll_invert"])
-        self.drag_item.state = int(self.settings["drag_scroll_enabled"])
-        for name, value in SCROLL_SPEEDS.items():
-            self.menu["Toc do cuon"][name].state = int(self.settings["scroll_speed"] == value)
-        self.pinch_item.state = int(self.settings["pinch_enabled"])
-        for name, value in PINCH_LEVELS.items():
-            self.menu["Do nhay chum"][name].state = int(self.settings["pinch_threshold"] == value)
-        for name, value in TAP_LEVELS.items():
-            self.menu["Do nhay go"][name].state = int(self.settings["tap_threshold"] == value)
-        self.menu["Bo qua dua tay toi/lui"].state = int(self.settings["ignore_push"])
-        self.pause_item.state = int(self.engine.pointer.paused)
-        self.update_check_item.state = int(self.settings["update_check"])
-        self.laser_item.state = int(self.settings["laser_enabled"])
-        self.volume_invert_item.state = int(self.settings["volume_invert"])
-        info = self.update_available()
-        self.update_item.title = (f"⬆ Tai ban moi {info['version']}..." if info
-                                  else "Dang kiem tra ban moi..." if self.updater.checking
-                                  else f"Kiem tra ban moi (dang dung {VERSION})")
+        paused = self.engine.pointer.paused
+        self.pause_item.title = "Tiếp tục" if paused else "Tạm dừng"
 
     def save(self):
         save_config(self.cfg, self.settings)
@@ -1472,7 +1384,6 @@ class AirMouseApp(rumps.App):
         self.engine.pointer.smoother.reset()
         log(f"profile applied: {name}")
         self.save()
-        self.rebuild_profile_menu()
 
     def profile_save(self, _):
         name = self.active_profile()
@@ -1481,7 +1392,6 @@ class AirMouseApp(rumps.App):
         self.cfg["profiles"][name] = profile_of(self.settings)
         log(f"profile saved: {name}")
         self.save()
-        self.rebuild_profile_menu()
 
     def profile_save_as(self, _):
         resp = rumps.Window("Đặt tên cho hồ sơ mới (lưu toàn bộ thông số đang dùng):",
@@ -1498,7 +1408,6 @@ class AirMouseApp(rumps.App):
         self.cfg["active_profile"] = name
         log(f"profile saved as: {name}")
         self.save()
-        self.rebuild_profile_menu()
 
     def profile_delete(self, _):
         name = self.active_profile()
@@ -1512,19 +1421,6 @@ class AirMouseApp(rumps.App):
         self.cfg["active_profile"] = next(iter(self.cfg["profiles"]))
         log(f"profile deleted: {name}")
         self.save()
-        self.rebuild_profile_menu()
-
-    def rebuild_profile_menu(self):
-        menu = self.menu["Ho so"]
-        if menu._menu is not None:  # rumps only creates the submenu with the first child
-            menu.clear()
-        for name in self.profile_names():
-            item = rumps.MenuItem(name, callback=lambda item: self.apply_profile(item.title))
-            item.state = int(name == self.active_profile())
-            menu.add(item)
-        menu.add(None)
-        menu.add(rumps.MenuItem("Luu ho so dang chon", callback=self.profile_save))
-        menu.add(rumps.MenuItem("Luu thanh ho so moi...", callback=self.profile_save_as))
 
     def check_accessibility(self):
         try:
@@ -1550,10 +1446,6 @@ class AirMouseApp(rumps.App):
     def pause(self, _):
         self.engine.pointer.paused = not self.engine.pointer.paused
         self.refresh_checks()
-
-    def toggle_click(self, _):
-        self.settings["click_enabled"] = not self.settings["click_enabled"]
-        self.save()
 
     def rezero(self, _):
         self.engine.pointer.rezero()
@@ -1585,23 +1477,6 @@ class AirMouseApp(rumps.App):
             log(f"update {self.update['version']} skipped")
             self.save()
 
-    def update_menu(self, _):
-        if self.update_available():
-            self.open_update(None)
-        else:
-            self.settings["skip_version"] = ""  # asking by hand shows even a skipped version
-            self.updater.check_now()
-            self.save()
-
-    def toggle_update_check(self, _):
-        self.settings["update_check"] = not self.settings["update_check"]
-        if self.settings["update_check"]:
-            self.updater.check_now()
-        self.save()
-
-    def set_control_mode(self, item):
-        self.set_control(CONTROL_MODES[item.title])
-
     def set_control(self, mode):
         """Mouse, presenter or media control (also from the window's picker)."""
         self.settings["control_mode"] = mode
@@ -1609,84 +1484,6 @@ class AirMouseApp(rumps.App):
         p.stroke, p.pending_click, p.first = None, None, {}
         log(f"control mode: {mode}")
         self.save()
-
-    def set_mode(self, item):
-        self.settings["mode"] = MODES[item.title]
-        self.save()
-        if self.settings["mode"] == "plane" and not self.settings.get("plane_calibrated"):
-            rumps.alert("Nen hieu chinh", "Che do mat phang can chay 'Hieu chinh huong...' mot lan "
-                        "de biet chieu trai/phai, len/xuong. Hoac dung 'Dao chieu' neu bi nguoc.")
-
-    def toggle_anchor(self, _):
-        self.settings["anchor_enabled"] = not self.settings["anchor_enabled"]
-        self.save()
-
-    def toggle_pinch(self, _):
-        self.settings["pinch_enabled"] = not self.settings["pinch_enabled"]
-        self.save()
-
-    def set_pinch_level(self, item):
-        self.settings["pinch_threshold"] = PINCH_LEVELS[item.title]
-        self.save()
-
-    def toggle_scroll(self, _):
-        self.settings["scroll_enabled"] = not self.settings["scroll_enabled"]
-        self.save()
-
-    def set_scroll_speed(self, item):
-        self.settings["scroll_speed"] = SCROLL_SPEEDS[item.title]
-        self.save()
-
-    def toggle_drag(self, _):
-        self.settings["drag_scroll_enabled"] = not self.settings["drag_scroll_enabled"]
-        self.save()
-
-    def toggle_scroll_invert(self, _):
-        self.settings["scroll_invert"] = not self.settings["scroll_invert"]
-        self.save()
-
-    def toggle_tap(self, _):
-        self.settings["tap_enabled"] = not self.settings["tap_enabled"]
-        self.save()
-
-    def set_tap_level(self, item):
-        self.settings["tap_threshold"] = TAP_LEVELS[item.title]
-        self.save()
-
-    def toggle_push(self, _):
-        self.settings["ignore_push"] = not self.settings["ignore_push"]
-        self.save()
-
-    def flip_x(self, _):
-        key = "invert_yaw" if self.settings["mode"] == "plane" else "invert_x"
-        self.settings[key] = not self.settings[key]
-        self.save()
-
-    def flip_y(self, _):
-        key = "invert_pitch" if self.settings["mode"] == "plane" else "invert_y"
-        self.settings[key] = not self.settings[key]
-        self.save()
-
-    def set_smoothing(self, item):
-        self.settings["smoothing"] = item.title
-        self.save()
-
-    def set_accel(self, item):
-        self.settings["accel"] = ACCELS[item.title]
-        self.save()
-
-    def set_speed(self, item):
-        self.settings["speed"] = SPEEDS[item.title]
-        self.save()
-
-    def set_click_level(self, item):
-        self.settings["click_threshold"] = CLICK_LEVELS[item.title]
-        self.save()
-
-    def swap_buttons(self, _):
-        self.settings["swap_buttons"] = not self.settings["swap_buttons"]
-        self.save()
-        rumps.alert("Da doi", "Da doi click trai va click phai cho tat ca cu chi.")
 
     def calibrate(self, _):
         if self.state != "active":

@@ -6,6 +6,8 @@ import AppKit as A
 import objc
 from Foundation import NSObject
 
+from arm_view import ArmView
+
 CW = 430         # column width
 W = 2 * CW       # window width
 PAD = 18
@@ -22,11 +24,12 @@ SLIDERS = [
     ("tap_threshold", "Ngưỡng gõ cổ tay", 1.8, 3.2, "{:.1f}"),
     ("click_threshold", "Ngưỡng vặn tay", 2.0, 8.0, "{:.1f}"),
     ("scroll_speed", "Tốc độ cuộn", 400, 4000, "{:.0f}"),
+    ("anchor_time", "Thời gian neo", 0.3, 2.0, "{:.1f} s"),
 ]
 INT_KEYS = {"speed", "scroll_speed"}
 
 CHECKS = [
-    ("anchor_enabled", "Neo chuột khi dừng tay 1 giây"),
+    ("anchor_enabled", "Neo chuột khi dừng tay"),
     ("pinch_enabled", "Click trái: chụm ngón cái + trỏ 2 lần"),
     ("tap_enabled", "Click phải: gõ cổ tay 2 lần"),
     ("click_enabled", "Click phải: vặn cẳng tay"),
@@ -192,7 +195,7 @@ class ControlWindow(NSObject):
         self.y += 22
         self.detail = self._label("", PAD, self.y, W - 2 * PAD, 11, color=A.NSColor.secondaryLabelColor())
         self.y += 26
-        self._buttons([("Tắt chuột bay", "toggle"), ("Tạm dừng", "pause"), ("Thu nhỏ xuống thanh menu", "hide"),
+        self._buttons([("Tắt chuột bay", "toggle"), ("Tạm dừng", "pause"), ("Ẩn cửa sổ (mở lại từ Dock)", "hide"),
                        ("Thoát ứng dụng", "quit")])
         self._profile_row()
         self._label("Điều khiển", PAD, self.y + 5, 80, 13, bold=True)
@@ -214,7 +217,17 @@ class ControlWindow(NSObject):
             self.buttons[action] = b
         self.buttons["open_update"].setKeyEquivalent_("")
         self.buttons["open_update"].setBezelColor_(A.NSColor.systemBlueColor())
-        self.y += 38
+        self.y += 36
+        # Options of the other modes and of the app itself (they used to live in the menu bar)
+        for key, text, x, w in (("laser_enabled", "Trình chiếu: chấm đỏ theo tay", PAD + 84, 250),
+                                ("volume_invert", "Media: đảo chiều xoay âm lượng", PAD + 340, 250),
+                                ("update_check", "Tự kiểm tra bản mới", PAD + 600, 220)):
+            c = A.NSButton.checkboxWithTitle_target_action_(text, self, "checkChanged:")
+            c.setFrame_(A.NSMakeRect(x, self.h - self.y - 22, w, 22))
+            c.setTag_(self._tag(key))
+            self.view.addSubview_(c)
+            self.checks[key] = c
+        self.y += 34
         top = self.y
 
         self.x0, self.cw = 0, CW  # left column: what the hand does, and how it moves the cursor
@@ -223,6 +236,12 @@ class ControlWindow(NSObject):
         self.m_pinch, self.v_pinch = self._meter("Lực chụm ngón", 0.5)
         self.m_tap, self.v_tap = self._meter("Lực gõ cổ tay", 6.0)
         self.m_twist, self.v_twist = self._meter("Lực vặn tay", 10.0)
+        self._section("Tư thế cánh tay")
+        self.arm = ArmView.alloc().initWithFrame_source_(
+            A.NSMakeRect(self.x0 + PAD, self.h - self.y - 118, self.cw - 2 * PAD, 118),
+            lambda: self.app.engine.pointer)
+        self.view.addSubview_(self.arm)
+        self.y += 122
         self._section("Di chuyển")
         self._label("Chế độ", self.x0 + PAD, self.y + 4, LABEL_W)
         self.seg_mode = self._segments("mode", MODES)
@@ -240,6 +259,7 @@ class ControlWindow(NSObject):
         self._section("Click")
         for key, text in CHECKS[:4]:
             self._check(key, text)
+        self._slider(*SLIDERS[7])  # how long the hand rests before the cursor anchors
         for key, text, lo, hi, fmt in SLIDERS[3:6]:
             self._slider(key, text, lo, hi, fmt)
         self._section("Cuộn trang")
