@@ -103,6 +103,12 @@ SCROLL_PINCHES = 4     # pinches in a row that switch scroll mode on
 SCROLL_EXIT_RATE = 4.0  # rad/s: a flick this fast leaves scroll mode (scrolling ~0.5-1, taps <=1.9)
 SCROLL_EXIT_FREEZE = 0.4  # s the cursor holds still after the exit flick (the arm's bounce)
 FLICK_UNDO = 0.3       # s of scrolling before the exit flick that is taken back
+# Scroll mode is a joystick: the page keeps scrolling while the hand is held above or below
+# where it was when scroll mode started, faster the further it is.
+JOY_DEAD = 0.05        # rad (~3 deg) of height change that doesn't scroll (resting hand, pinches)
+JOY_CURVE = 1.7        # speed ~ (angle past JOY_DEAD)^JOY_CURVE: a slight tilt reads, a big one races
+JOY_GAIN = 3.0         # speed in px/s = scroll_speed * JOY_GAIN * angle^JOY_CURVE
+JOY_MAX = 0.8          # rad; tilting further doesn't scroll faster
 SERIES_SETTLE = 0.25   # s after a toggle/click in which pinch echoes can't start a new series
 PINCH_CONFIRM = 0.12   # s after a pinch in which the hand must stay put for it to count
 CONFIRM_RATE = 0.35    # rad/s: average band rotation in that time above which it was a sweep starting
@@ -267,7 +273,9 @@ class Pointer:
         self.tap_guard_until = 0.0
         self.capture = None     # list of (t, ax, ay, az, gx, gy, gz) while the pinch test records
         self.spin_until = 0.0
-        self.dragging = False      # scroll mode (toggled by three pinches)
+        self.dragging = False      # scroll mode (toggled by four pinches)
+        self.joy_ref = None        # forearm height (up . forearm axis) when scroll mode started
+        self.joy_drop = 0.0        # integrated hand drop, when gravity can't tell (sensor-axis mode)
         self.pending_click = None  # time a double pinch turns into a click unless a 3rd pinch comes
         self.settle_until = 0.0
         self.tentative = None     # a pinch awaiting confirmation that the hand stayed put
@@ -552,16 +560,31 @@ class Pointer:
             log(f"scroll {px:.0f}px")
 
     def _drag_scroll(self, sx, sy, ts, dt, t_play):
-        """Scroll mode, switched on by four pinches: the cursor stays put and the page follows
-        the hand up and down (up = scroll up). A fast flick of the hand leaves it.
+        """Scroll mode, switched on by four pinches: the cursor stays put and the page scrolls
+        on its own while the hand is held above (scroll up) or below (scroll down) where it
+        was when the mode started - slowly for a slight tilt, faster the further it goes.
+        A fast flick of the hand leaves it.
         sx, sy: pointing rates in screen directions (sy > 0 = hand moving down).
         Returns True while scroll mode owns the sample."""
         if not self.dragging:
             return False
-        sy = _soft_deadzone(sy, self.s["deadzone"])  # a resting hand mustn't creep the page
-        if sy and not self.paused:
-            self.queue.append((t_play, 0.0, 0.0, dt, self._drag_pixels(sy * dt)))
+        drop = self._hand_drop(sy, dt)
+        excess = min(abs(drop) - JOY_DEAD, JOY_MAX)
+        if excess > 0 and not self.paused:
+            angle = math.copysign(JOY_GAIN * excess ** JOY_CURVE * dt, drop)
+            self.queue.append((t_play, 0.0, 0.0, dt, self._drag_pixels(angle)))
         return True
+
+    def _hand_drop(self, sy, dt):
+        """How far the hand is below where scroll mode started (rad, screen sense: + = lower).
+        In plane mode it is read from gravity along the forearm, so it never drifts: the rate
+        of change of up . forearm is exactly minus the vertical rate plane_rates reports, so
+        the calibrated invert_pitch applies the same way. Otherwise the rate is integrated."""
+        if self.s["mode"] == "plane" and self.grav is not None and self.joy_ref is not None:
+            rise = self.grav[AXIS[self.s["forearm_axis"]]] - self.joy_ref
+            return -rise * (-1 if self.s["invert_pitch"] else 1)
+        self.joy_drop += sy * dt
+        return self.joy_drop
 
     def _flick_exit(self, w, ts, t_play):
         """In scroll mode a fast flick of the hand (any direction) leaves it. Checked before the
@@ -581,6 +604,8 @@ class Pointer:
     def _set_scroll_mode(self, on, ts):
         if on:
             self.dragging, self.anchored = True, False
+            self.joy_drop = 0.0
+            self.joy_ref = self.grav[AXIS[self.s["forearm_axis"]]] if self.grav is not None else None
             log("scroll mode on")
         else:
             # Back to the anchored cursor at the same spot, ready to click
@@ -1103,7 +1128,7 @@ class AirMouseApp(rumps.App):
             if p.palm_up:
                 return "⇅  Chế độ cuộn trang (úp tay để quay lại)"
             if p.dragging:
-                return "⇕  Chế độ cuộn: đưa tay lên/xuống · vẩy tay thật nhanh để thoát"
+                return "⇕  Chế độ cuộn: nâng tay để cuộn lên, hạ tay để cuộn xuống · vẩy tay nhanh để thoát"
             if p.anchored:
                 return "⚓  Đang neo – chụm 2 lần để click"
             return "●  Đang điều khiển chuột"

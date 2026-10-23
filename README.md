@@ -16,7 +16,7 @@ Lia cẳng tay để di chuyển con trỏ, chụm ngón tay để click, chụm
 | Lia hoặc gạt cẳng tay | Di chuyển con trỏ (mượt, có tăng tốc khi lia nhanh) |
 | Dừng tay khoảng 1 giây | Neo con trỏ tại chỗ |
 | Chụm ngón cái vào ngón trỏ 2 lần | Click trái |
-| Chụm 4 lần | Bật chế độ cuộn: đưa tay lên/xuống để cuộn trang |
+| Chụm 4 lần | Bật chế độ cuộn: nâng tay cao hơn lúc chụm thì trang tự cuộn lên, hạ tay thì tự cuộn xuống; lệch càng nhiều cuộn càng nhanh |
 | Vẩy tay thật nhanh | Thoát chế độ cuộn |
 | Lật ngửa tay rồi hất lên | Cuộn trang nhanh |
 | Đưa tay tới hoặc kéo về | Được bỏ qua, con trỏ đứng yên |
