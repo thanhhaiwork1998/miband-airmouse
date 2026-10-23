@@ -101,7 +101,7 @@ class Band:
             dev = await BleakScanner.find_device_by_address(self.address, timeout=15)
         if not dev:
             self._trace("band not found")
-            raise RuntimeError("Khong thay vong. Mo sang man hinh vong, tat Bluetooth dien thoai roi thu lai.")
+            raise RuntimeError("Khong thay vong. Tat Bluetooth dien thoai, tren vong mo 'Tim dien thoai' roi thu lai.")
         self.log("  Da thay vong, dang ket noi...")
         self._trace("found, connecting")
         self.client = BleakClient(dev, timeout=60, disconnected_callback=self._on_disconnect)

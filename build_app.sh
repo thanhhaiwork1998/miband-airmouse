@@ -5,7 +5,7 @@ set -e
 cd "$(dirname "$0")"
 APP="${APP:-$HOME/Applications/MiBand AirMouse.app}"
 ARCH="${ARCH:-$(uname -m)}"
-VERSION="${VERSION:-1.3.0}"
+VERSION="${VERSION:-$(sed -n 's/^VERSION = "\(.*\)".*/\1/p' version.py)}"  # from version.py
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"

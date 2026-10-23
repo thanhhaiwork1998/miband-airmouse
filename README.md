@@ -25,15 +25,19 @@ Lia cẳng tay để di chuyển con trỏ, chụm ngón tay để click, chụm
 
 | Cử chỉ | 🖱 Chuột | ▶️ Trình chiếu | 🎵 Media |
 |---|---|---|---|
-| Chụm 2 lần | Click trái | Slide tiếp | Phát / dừng |
+| Di tay | Di chuột | Di **chấm đỏ** (bút laser) | – |
+| Chụm 2 lần | Click trái | Slide tiếp | Bật / tắt **núm âm lượng** |
+| Xoay cổ tay (núm đang bật) | – | – | Tăng / giảm âm lượng |
+| Chụm 3 lần | – | – | Phát / dừng |
 | Lia nhanh sang phải / trái | Di chuột | Slide tiếp / trước | Bài sau / trước |
 | Lia nhanh lên / xuống | Di chuột | – | Tăng / giảm âm lượng |
 
 Ngoài ra:
-- **Thiết lập lần đầu bằng mã QR**: đăng nhập tài khoản Xiaomi bằng app Mi Fitness / Xiaomi Home để lấy token của vòng, không cần nhập mật khẩu.
+- **Thiết lập lần đầu bằng mã QR**: quét bằng camera điện thoại (hoặc đăng nhập ngay trên Mac) vào tài khoản Xiaomi để app tự lấy token của vòng. Mật khẩu chỉ nhập trên trang của Xiaomi, app không thấy.
 - **Cửa sổ điều khiển**: đo trực tiếp lực từng cử chỉ so với ngưỡng, thanh trượt cho mọi thông số, chạy nền trên thanh menu.
 - **Hồ sơ**: lưu bộ thông số và kết quả hiệu chỉnh cho từng người hoặc từng cách đeo.
 - Biểu tượng riêng trên Dock.
+- **Báo bản mới**: khi có bản phát hành mới trên GitHub, app hiện "Có bản mới" kèm nút tải về.
 
 ## Thiết bị hỗ trợ
 
@@ -79,7 +83,7 @@ Muốn tự đóng gói bản dựng sẵn: chạy `./build_release.sh` (arm64) 
 
 1. Cho phép **Bluetooth** khi macOS hỏi.
 2. Bật **MiBand AirMouse** trong *System Settings → Privacy & Security → Accessibility* (để app được di chuột và click).
-3. Màn hình **Thiết lập thiết bị** hiện ra: bấm **Quét mã QR…**, quét bằng Mi Fitness hoặc Xiaomi Home, bấm **Tìm vòng** rồi **Lưu và kết nối**.
+3. Màn hình **Thiết lập thiết bị** hiện ra: bấm **Quét mã QR…**, quét bằng camera điện thoại rồi đăng nhập tài khoản Xiaomi trên trang hiện ra (app Mi Fitness không quét được mã này). Tắt Bluetooth điện thoại, trên vòng mở **Tìm điện thoại**, bấm **Tìm vòng** rồi **Lưu và kết nối**.
 4. Bấm **Hiệu chỉnh hướng…** một lần trong cửa sổ điều khiển.
 
 Chi tiết từng bước và cách dùng cử chỉ có trong [hướng dẫn sử dụng](https://thanhhaiwork1998.github.io/miband-airmouse/).
@@ -107,6 +111,8 @@ git clone https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor.git ~/
 | `app.py` | Ứng dụng: xử lý cử chỉ, di chuột, menu, hồ sơ |
 | `band.py` | Giao thức Bluetooth với Mi Band (xác thực, mã hoá, buổi tập ẩn) |
 | `window.py` | Cửa sổ điều khiển |
+| `laser.py` | Chấm đỏ của chế độ Trình chiếu |
+| `updates.py`, `version.py` | Kiểm tra bản mới trên GitHub; số phiên bản (script đóng gói đọc từ đây) |
 | `setup_window.py`, `discovery.py`, `xiaomi_cloud.py` | Thiết lập lần đầu: quét vòng, đăng nhập Xiaomi bằng mã QR, lấy token |
 | `launcher.m`, `build_app.sh`, `make_icon.py` | Đóng gói `MiBand AirMouse.app` có biểu tượng trên Dock |
 | `build_release.sh` | Tạo bản dựng sẵn có kèm Python (zip để tải về) |

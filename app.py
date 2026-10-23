@@ -8,6 +8,7 @@ import json
 import math
 import os
 import signal
+import subprocess
 import threading
 import time
 import traceback
@@ -21,6 +22,9 @@ from band import Band
 from watch_source import WatchSource
 from window import ControlWindow
 from setup_window import SetupWindow
+from updates import UpdateChecker
+from laser import LaserDot
+from version import VERSION
 from PyObjCTools import AppHelper
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -33,7 +37,7 @@ LOG = os.path.join(DATA, "app.log")
 REQUESTS = set()  # "show" / "quit" asked for by the Dock launcher's signals
 PARENT = os.getppid()  # the Dock launcher; if it dies without signalling, don't linger
 DEFAULT_PROFILE = "Mặc định"
-PROFILE_SKIP = {"gestures_v2", "gestures_v3", "control_mode"}  # the mode is a moment's choice, not tuning
+PROFILE_SKIP = {"gestures_v2", "gestures_v3", "control_mode", "update_check", "skip_version"}  # the mode is a moment's choice, not tuning
 
 SPEEDS = {"Cham": 300, "Vua": 600, "Nhanh": 1000}
 ACCELS = {"Tat": 0.0, "Vua": 1.5, "Manh": 3.0, "Rat manh": 5.0}
@@ -58,6 +62,9 @@ DEFAULTS.update({"mode": "plane", "forearm_axis": "x", "invert_yaw": False, "inv
                  "scroll_enabled": True, "scroll_speed": 1500, "scroll_invert": False,  # px per rad of flick
                  "smoothing": "Vua", "drag_scroll_enabled": True,
                  "control_mode": "mouse",  # or "slides" (presenter) / "media" (music, video)
+                 "update_check": True, "skip_version": "",  # look for new releases on GitHub
+                 "laser_enabled": True,  # presenter mode: the hand moves a red dot, not the cursor
+                 "volume_invert": False,  # media mode: which way of turning the wrist is louder
                  "device": "miband"})  # or "applewatch"
 
 
@@ -117,7 +124,13 @@ SWIPE_RATE = 1.5       # rad/s peak a stroke needs to be a swipe (relaxed pointi
 SWIPE_ANGLE = 0.2      # rad (~11 deg) a swipe must travel
 SWIPE_RATIO = 1.5      # the main direction must be this much larger than the other
 SWIPE_GUARD = 0.8      # s after a swipe in which the hand's way back is ignored
+SWIPE_WINDUP = 0.2     # s of a swipe's start, below SWIPE_START, that already moved the red dot
 VOLUME_STEPS = 2       # volume key presses per swipe up/down
+LASER_SHOW = 3.0       # s the presenter's red dot stays after the hand stops (then fades)
+# Media mode's volume knob (two pinches on/off): turning the wrist steps the volume
+VOLUME_TURN = 0.1      # rad (~6 deg) of wrist turn per volume step (macOS has 16)
+VOLUME_DEAD = 0.1      # rad/s of turning ignored (tremor, slow drift)
+VOLUME_IDLE = 10.0     # s without turning after which the knob switches itself off
 KEY_RIGHT, KEY_LEFT = 124, 123        # macOS virtual key codes
 MEDIA_PLAY, MEDIA_NEXT, MEDIA_PREVIOUS = 16, 17, 18   # NX_KEYTYPE_* (ev_keymap.h)
 MEDIA_SOUND_UP, MEDIA_SOUND_DOWN = 0, 1
@@ -288,8 +301,16 @@ class Pointer:
         self.dragging = False      # scroll mode (toggled by four pinches)
         self.joy_ref = None        # forearm height (up . forearm axis) when scroll mode started
         self.joy_drop = 0.0        # integrated hand drop, when gravity can't tell (sensor-axis mode)
-        self.stroke = None         # [dx, dy, peak speed] of a possible swipe (presenter / media)
+        self.stroke = None         # [dx, dy, peak speed, start play time] of a possible swipe
         self.swipe_guard = 0.0
+        self.volume_mode = False   # media mode: the wrist is a volume knob
+        self.volume_turn = 0.0     # rad turned since the last volume step
+        self.volume_since = 0.0    # last volume step (or switching the knob on)
+        self.laser = None          # presenter's red dot (global screen points), moved by run()
+        self.laser_moved = 0.0     # when it last moved (the overlay fades it out after LASER_SHOW)
+        self.laser_rewind = None   # play time to put the dot back to (a swipe isn't pointing)
+        self.laser_hist = deque()  # (play time, position) for that rewind
+        self.screens = (0.0, None)  # (when measured, union of the displays' bounds)
         self.pending_click = None  # time a double pinch turns into a click unless a 3rd pinch comes
         self.settle_until = 0.0
         self.tentative = None     # a pinch awaiting confirmation that the hand stayed put
@@ -430,6 +451,8 @@ class Pointer:
         mouse = self.s["control_mode"] == "mouse"
         if not mouse and (self.dragging or self.palm_up):
             self.dragging = self.palm_up = False  # scrolling belongs to mouse mode
+        if self.volume_mode and self.s["control_mode"] != "media":
+            self._set_volume_mode(False, now)
         if mouse:
             self._update_palm(now)
         ax, ay, at = AXIS[self.s["axis_x"]], AXIS[self.s["axis_y"]], self.twist_axis()
@@ -459,6 +482,9 @@ class Pointer:
             tapping = self._gesture(a, w, ts) if a else False
             if self._flick_exit(w, ts, t_play):
                 continue
+            if self.volume_mode:
+                self._volume_knob(w[at], ts, dt)
+                continue
             twist = w[at]
             self.last_peak = max(self.last_peak * 0.999, abs(twist))
             if self.s["click_enabled"] and not tapping:
@@ -487,9 +513,12 @@ class Pointer:
             if not mouse:
                 # Presenter / media: the cursor stays put. Swipes are commands; the anchor still
                 # runs, so a resting hand's double pinch is heard.
-                self._swipe(gx * (-1 if inv_x else 1), gy * (-1 if inv_y else 1), ts, dt)
-                self._anchored(gx, gy, ts, dt, tapping)
-                continue
+                self._swipe(gx * (-1 if inv_x else 1), gy * (-1 if inv_y else 1), ts, dt, t_play)
+                if not self.laser_on() or ts < self.swipe_guard:
+                    self._anchored(gx, gy, ts, dt, tapping)
+                    continue
+                # Presenter with the red dot: the hand moves the dot (run() sends the motion
+                # there instead of to the cursor), through the same anchor/smoothing as the mouse.
             if self.palm_up:
                 # Palm turned up: the cursor holds still and upward flicks scroll the page.
                 self._scroll_flick(gy * (1 if inv_y else -1), dt)  # physical upward speed
@@ -713,11 +742,14 @@ class Pointer:
                 else:
                     log(f"pinch discarded: the hand kept moving ({t['sum'] / t['n']:.2f} rad/s)")
         if self.pending_click is not None and ts >= self.pending_click:
-            # Two pinches and no third in time: it was a click after all
+            # Two pinches and no third in time: a click after all (media: the volume knob)
             self.pending_click, self.first = None, {}
-            self._press(right=False)
+            if self.s["control_mode"] == "media":
+                self._command("pinch")
+            else:
+                self._press(right=False)
             self.settle_until = ts + SERIES_SETTLE
-        if not (self.anchored or self.dragging):  # scroll mode listens for its exit pinches
+        if not (self.anchored or self.dragging or self.volume_mode):  # those modes listen for their exit pinches
             self.first, self.event, self.pending_click, self.tentative = {}, None, None, None
             return False
         tap_thr, pinch_thr = self.s["tap_threshold"], self.s["pinch_threshold"]
@@ -800,6 +832,7 @@ class Pointer:
             self._press(right=True)  # two wrist taps = right click
             return
         mouse = self.s["control_mode"] == "mouse"
+        media = self.s["control_mode"] == "media"
         enabled = self.s["drag_scroll_enabled"] and mouse
         if count >= SCROLL_PINCHES and enabled:
             self.first, self.pending_click = {}, None
@@ -810,8 +843,9 @@ class Pointer:
         if count == 2:
             if self.dragging:
                 return  # no clicking in scroll mode
-            if enabled:
-                # Wait to see whether more pinches follow (on the way to four) before clicking
+            if enabled or media:
+                # Wait to see whether more pinches follow (mouse: on the way to four; media:
+                # three = play / pause) before acting on two
                 self.pending_click = start + TRIPLE_GAP + EVENT_WINDOW + PINCH_CONFIRM
             else:
                 self.first = {}
@@ -822,8 +856,15 @@ class Pointer:
                 self.settle_until = start + SERIES_SETTLE
         elif count == 3:
             self.pending_click = None  # three pinches: heading for four, not a click
+            if media:
+                self.first = {}
+                self._command("pinch3")  # three pinches = play / pause
+                self.settle_until = start + SERIES_SETTLE
 
-    def _swipe(self, sx, sy, ts, dt):
+    def laser_on(self):
+        return self.s["control_mode"] == "slides" and self.s["laser_enabled"]
+
+    def _swipe(self, sx, sy, ts, dt, t_play):
         """A quick, mostly straight stroke of the hand (sx > 0 = right, sy > 0 = down, rad/s)
         is a swipe, judged once the hand slows down again. Pointing-speed motion isn't."""
         if ts < self.swipe_guard:
@@ -832,13 +873,13 @@ class Pointer:
         speed = math.hypot(sx, sy)
         if speed > SWIPE_START:
             if self.stroke is None:
-                self.stroke = [0.0, 0.0, 0.0]
+                self.stroke = [0.0, 0.0, 0.0, t_play - dt]
             st = self.stroke
             st[0], st[1], st[2] = st[0] + sx * dt, st[1] + sy * dt, max(st[2], speed)
             return
         if self.stroke is None:
             return
-        dx, dy, peak = self.stroke
+        dx, dy, peak, began = self.stroke
         self.stroke = None
         if peak < SWIPE_RATE or math.hypot(dx, dy) < SWIPE_ANGLE:
             return
@@ -851,6 +892,9 @@ class Pointer:
             return
         self.swipe_guard = ts + SWIPE_GUARD
         self.anchored, self.escape, self.first, self.pending_click = False, [], {}, None
+        if self.laser_on():
+            # The swipe's own motion, wind-up included, shouldn't move the red dot
+            self.laser_rewind = began - SWIPE_WINDUP
         self._command(direction)
 
     def _command(self, gesture):
@@ -864,11 +908,35 @@ class Pointer:
                 self._key(key)
                 log(f"slides: {gesture} -> {'next' if key == KEY_RIGHT else 'previous'}")
         elif mode == "media":
-            keys = {"pinch": [MEDIA_PLAY], "right": [MEDIA_NEXT], "left": [MEDIA_PREVIOUS],
+            if gesture == "pinch":
+                self._set_volume_mode(not self.volume_mode, time.monotonic())
+                return
+            keys = {"pinch3": [MEDIA_PLAY], "right": [MEDIA_NEXT], "left": [MEDIA_PREVIOUS],
                     "up": [MEDIA_SOUND_UP] * VOLUME_STEPS, "down": [MEDIA_SOUND_DOWN] * VOLUME_STEPS}[gesture]
             for k in keys:
                 self._media_key(k)
             log(f"media: {gesture}")
+
+    def _set_volume_mode(self, on, ts):
+        self.volume_mode, self.volume_turn, self.volume_since = on, 0.0, ts
+        self.stroke = None
+        log(f"volume knob {'on' if on else 'off'}")
+
+    def _volume_knob(self, roll, ts, dt):
+        """Media mode, after two pinches: turning the wrist (roll about the forearm, which moves
+        the band nowhere) steps the volume like a knob; the system's volume display shows it.
+        Untouched for VOLUME_IDLE it switches itself off, so a forgotten knob can't surprise."""
+        if ts - self.volume_since > VOLUME_IDLE:
+            self._set_volume_mode(False, ts)
+            return
+        roll = _soft_deadzone(roll, VOLUME_DEAD) * (-1 if self.s["volume_invert"] else 1)
+        self.volume_turn += roll * dt
+        while abs(self.volume_turn) >= VOLUME_TURN:
+            up = self.volume_turn > 0
+            if not self.paused:
+                self._media_key(MEDIA_SOUND_UP if up else MEDIA_SOUND_DOWN)
+            self.volume_turn -= VOLUME_TURN if up else -VOLUME_TURN
+            self.volume_since = ts
 
     def _key(self, code):
         for down in (True, False):
@@ -934,6 +1002,8 @@ class Pointer:
                 self.scroll_pending.append(sc)  # drag-scroll, already paced by the queue
             if self.paused:
                 self.queue.clear()
+            elif self.laser_on():
+                self._move_laser(dx, dy, time.monotonic())
             elif dx or dy:
                 pos = Q.CGEventGetLocation(Q.CGEventCreate(None))
                 if self.cursor is None or abs(pos.x - self.cursor[0]) > 1.5 or abs(pos.y - self.cursor[1]) > 1.5:
@@ -953,6 +1023,38 @@ class Pointer:
                     ev = Q.CGEventCreateScrollWheelEvent(None, Q.kCGScrollEventUnitPixel, 1, whole)
                     Q.CGEventPost(Q.kCGHIDEventTap, ev)
             await asyncio.sleep(1 / FRAME_RATE)
+
+
+    def _move_laser(self, dx, dy, now):
+        """Presenter mode: the hand's motion moves the red dot (drawn by LaserDot) instead of
+        the cursor, anywhere on the connected displays (slides are often on a projector)."""
+        Q = Quartz
+        due = now - PLAYBACK_DELAY  # the play time of what take_motion just returned
+        if self.laser_rewind is not None:
+            t0, self.laser_rewind = self.laser_rewind, None
+            self.queue = deque(e for e in self.queue if e[0] - e[3] < t0)  # the swipe's unplayed part
+            back = [pos for t, pos in self.laser_hist if t <= t0]
+            if back:
+                self.laser = back[-1]
+            dx = dy = 0.0
+        if not (dx or dy):
+            return
+        if self.laser is None:
+            pos = Q.CGEventGetLocation(Q.CGEventCreate(None))
+            self.laser = (pos.x, pos.y)  # start where the mouse is
+            self.laser_hist.append((due - 1.0, self.laser))
+        if now - self.screens[0] > 2.0:
+            err, ids, n = Q.CGGetActiveDisplayList(16, None, None)
+            rects = [Q.CGDisplayBounds(i) for i in (ids or [])[:n]] or [Q.CGDisplayBounds(Q.CGMainDisplayID())]
+            self.screens = (now, (min(r.origin.x for r in rects), min(r.origin.y for r in rects),
+                                  max(r.origin.x + r.size.width for r in rects),
+                                  max(r.origin.y + r.size.height for r in rects)))
+        x0, y0, x1, y1 = self.screens[1]
+        self.laser = (min(max(self.laser[0] + dx, x0), x1 - 1), min(max(self.laser[1] + dy, y0), y1 - 1))
+        self.laser_moved = now
+        self.laser_hist.append((due, self.laser))
+        while self.laser_hist and self.laser_hist[0][0] < due - 2.0:
+            self.laser_hist.popleft()
 
 
 class Engine:
@@ -1064,6 +1166,9 @@ class AirMouseApp(rumps.App):
         self.cfg, self.settings = load_config()
         self.state = "off"
         self.status_item = rumps.MenuItem("Da tat")
+        self.update = None  # newer release found on GitHub (see updates.py)
+        self.update_item = rumps.MenuItem(f"Kiem tra ban moi (dang dung {VERSION})", callback=self.update_menu)
+        self.update_check_item = rumps.MenuItem("Tu kiem tra ban moi", callback=self.toggle_update_check)
         self.toggle_item = rumps.MenuItem("Bat chuot bay", callback=self.toggle)
         self.pause_item = rumps.MenuItem("Tam dung", callback=self.pause)
         self.click_item = rumps.MenuItem("Click phai bang van tay", callback=self.toggle_click)
@@ -1100,6 +1205,11 @@ class AirMouseApp(rumps.App):
         control_menu = rumps.MenuItem("Che do dieu khien")
         for name in CONTROL_MODES:
             control_menu.add(rumps.MenuItem(name, callback=self.set_control_mode))
+        control_menu.add(None)
+        self.laser_item = rumps.MenuItem("Trinh chieu: cham do theo tay", callback=self.toggle_laser)
+        control_menu.add(self.laser_item)
+        self.volume_invert_item = rumps.MenuItem("Media: dao chieu xoay am luong", callback=self.toggle_volume_invert)
+        control_menu.add(self.volume_invert_item)
         mode_menu = rumps.MenuItem("Che do di chuyen")
         for name in MODES:
             mode_menu.add(rumps.MenuItem(name, callback=self.set_mode))
@@ -1123,7 +1233,9 @@ class AirMouseApp(rumps.App):
             rumps.MenuItem("Hieu chinh huong...", callback=self.calibrate),
             rumps.MenuItem("Do thu click chum ngon...", callback=self.pinch_test),
             rumps.MenuItem("Dat lai diem dung yen (khi chuot troi)", callback=self.rezero),
-            rumps.MenuItem("Mo thu muc cai dat", callback=lambda _: os.system(f'open "{HERE}"')),
+            rumps.MenuItem("Mo thu muc cai dat", callback=lambda _: os.system(f'open "{DATA}"')),
+            None,
+            self.update_item, self.update_check_item,
             None,
             rumps.MenuItem("Thoat", callback=self.quit),
         ]
@@ -1131,13 +1243,17 @@ class AirMouseApp(rumps.App):
         self.dirty = False  # settings changed in the window, saved by the next tick
         self._trusted, self._trust_checked = True, float("-inf")  # see trusted()
         self.engine = Engine(self.cfg, self.settings, self.set_status)
+        self.updater = UpdateChecker(self._update_found, log, lambda: self.settings["update_check"])
         self.rebuild_profile_menu()
         self.window_ctl = ControlWindow.alloc().initWithApp_(self)
         self.setup_ctl = SetupWindow.alloc().initWithApp_(self)
         self.refresh_checks()
         self.check_accessibility()
+        self.updater.start()
         rumps.Timer(self.tick, 0.5).start()
         rumps.Timer(self.window_tick, 0.2).start()
+        self.laser_dot = LaserDot()
+        rumps.Timer(self.laser_tick, 1 / 60).start()
         self.window_ctl.show()
         if self.configured():
             self.toggle(None)  # start right away
@@ -1194,6 +1310,19 @@ class AirMouseApp(rumps.App):
         if self.window_ctl.visible():
             self.window_ctl.refresh()
 
+    def laser_tick(self, _):
+        p = self.engine.pointer
+        on = p.laser_on() and not p.paused and self.state == "active"
+        self.laser_dot.update(p.laser if on else None, time.monotonic() - p.laser_moved, LASER_SHOW)
+
+    def toggle_volume_invert(self, _):
+        self.settings["volume_invert"] = not self.settings["volume_invert"]
+        self.save()
+
+    def toggle_laser(self, _):
+        self.settings["laser_enabled"] = not self.settings["laser_enabled"]
+        self.save()
+
     def trusted(self):
         """Whether macOS lets us post mouse events. Without it they are dropped silently, so
         the band works but the cursor never moves. Rechecked every few seconds."""
@@ -1219,7 +1348,10 @@ class AirMouseApp(rumps.App):
                 return "‖  Tạm dừng"
             mode = self.settings["control_mode"]
             if mode == "slides":
-                return "▶︎  Trình chiếu – con trỏ đứng yên, cử chỉ điều khiển slide"
+                return ("▶︎  Trình chiếu – tay chỉ chấm đỏ, cử chỉ điều khiển slide" if self.settings["laser_enabled"]
+                        else "▶︎  Trình chiếu – con trỏ đứng yên, cử chỉ điều khiển slide")
+            if mode == "media" and p.volume_mode:
+                return "🔊  Chỉnh âm lượng – xoay cổ tay để tăng / giảm · chụm 2 lần để thoát"
             if mode == "media":
                 return "♫  Media – con trỏ đứng yên, cử chỉ điều khiển nhạc / video"
             if p.palm_up:
@@ -1240,10 +1372,11 @@ class AirMouseApp(rumps.App):
             return getattr(self, "status_text", "")
         s = self.settings  # list only the gestures that are switched on
         if s["control_mode"] == "slides":
-            return "Chụm 2 lần hoặc lia tay nhanh sang phải: slide tiếp · lia sang trái: slide trước"
+            return (("Di tay: chấm đỏ · " if s["laser_enabled"] else "")
+                    + "Chụm 2 lần hoặc lia nhanh sang phải: slide tiếp · lia sang trái: slide trước")
         if s["control_mode"] == "media":
-            return ("Chụm 2 lần: phát / dừng · lia phải / trái: bài sau / trước · "
-                    "lia lên / xuống: tăng / giảm âm lượng")
+            return ("Chụm 2 lần: núm âm lượng (xoay cổ tay) · chụm 3 lần: phát / dừng · "
+                    "lia phải / trái: bài sau / trước · lia lên / xuống: âm lượng")
         parts = [("pinch_enabled", "Chụm 2 lần: click trái"),
                  ("drag_scroll_enabled", "Chụm 4 lần: chế độ cuộn (vẩy tay để thoát)"),
                  ("tap_enabled", "Gõ cổ tay 2 lần: click phải"),
@@ -1269,7 +1402,9 @@ class AirMouseApp(rumps.App):
         self.tap_peak_item.title = f"Luc go gan day: {p.live_tap:.1f} (nguong {self.settings['tap_threshold']})"
         self.pinch_peak_item.title = f"Luc chum gan day: {p.live_pinch:.2f} (nguong {self.settings['pinch_threshold']})"
         mode = self.settings["control_mode"]
-        if state == "active" and mode != "mouse":
+        if state == "active" and mode == "media" and p.volume_mode:
+            self.title = "⌚︎🔊"
+        elif state == "active" and mode != "mouse":
             self.title = "⌚︎▶︎" if mode == "slides" else "⌚︎♫"
         elif state == "active" and p.palm_up:
             self.title = "⌚︎⇅"
@@ -1306,6 +1441,13 @@ class AirMouseApp(rumps.App):
             self.menu["Do nhay go"][name].state = int(self.settings["tap_threshold"] == value)
         self.menu["Bo qua dua tay toi/lui"].state = int(self.settings["ignore_push"])
         self.pause_item.state = int(self.engine.pointer.paused)
+        self.update_check_item.state = int(self.settings["update_check"])
+        self.laser_item.state = int(self.settings["laser_enabled"])
+        self.volume_invert_item.state = int(self.settings["volume_invert"])
+        info = self.update_available()
+        self.update_item.title = (f"⬆ Tai ban moi {info['version']}..." if info
+                                  else "Dang kiem tra ban moi..." if self.updater.checking
+                                  else f"Kiem tra ban moi (dang dung {VERSION})")
 
     def save(self):
         save_config(self.cfg, self.settings)
@@ -1423,6 +1565,39 @@ class AirMouseApp(rumps.App):
             time.sleep(0.2)
         if self.state == "calibrating":
             self.set_status("active", "Dang dieu khien chuot")
+
+    # ---- new releases (the window shows a notice; nothing is installed automatically) ----
+    def _update_found(self, info):
+        self.update = info  # from the checker's thread; the timers pick it up
+
+    def update_available(self):
+        info = self.update
+        return info if info and info["version"] != self.settings["skip_version"] else None
+
+    def open_update(self, _):
+        info = self.update
+        if info:
+            subprocess.run(["open", info["page"]])
+
+    def skip_update(self, _):
+        if self.update:
+            self.settings["skip_version"] = self.update["version"]
+            log(f"update {self.update['version']} skipped")
+            self.save()
+
+    def update_menu(self, _):
+        if self.update_available():
+            self.open_update(None)
+        else:
+            self.settings["skip_version"] = ""  # asking by hand shows even a skipped version
+            self.updater.check_now()
+            self.save()
+
+    def toggle_update_check(self, _):
+        self.settings["update_check"] = not self.settings["update_check"]
+        if self.settings["update_check"]:
+            self.updater.check_now()
+        self.save()
 
     def set_control_mode(self, item):
         self.set_control(CONTROL_MODES[item.title])

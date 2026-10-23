@@ -200,7 +200,7 @@ html { scroll-behavior: smooth; }
           <tr><th>Cần có</th><th>Ghi chú</th></tr>
           <tr><td>Máy Mac</td><td>macOS 12 trở lên. Tải <b>MiBand-AirMouse-…-arm64.zip</b> (Mac chip Apple M1 trở đi) hoặc <b>…-x86_64.zip</b> (Mac chip Intel) ở trang <a href="https://github.com/thanhhaiwork1998/miband-airmouse/releases/latest">Releases</a>, giải nén rồi kéo <b>MiBand AirMouse</b> vào thư mục <b>Applications</b>.</td></tr>
           <tr><td>Xiaomi Smart Band 10</td><td>Đã ghép đôi với app <b>Mi Fitness</b> trên điện thoại. Mi Band 9 / 9 Pro / 9 Active đang ở mức thử nghiệm.</td></tr>
-          <tr><td>Điện thoại</td><td>Có <b>Mi Fitness</b> hoặc <b>Xiaomi Home</b>, đăng nhập đúng tài khoản Xiaomi đã ghép vòng. Chỉ dùng để quét mã QR một lần.</td></tr>
+          <tr><td>Điện thoại</td><td>Chỉ cần <b>camera</b> để quét mã QR một lần, rồi đăng nhập tài khoản Xiaomi đã ghép vòng. Không có điện thoại thì đăng nhập ngay trên máy Mac cũng được.</td></tr>
         </table>
       </div>
       <p class="note">Mỗi lúc vòng chỉ kết nối được với <strong>một thiết bị</strong>. Khi dùng với Mac, hãy tắt Bluetooth trên điện thoại (trong Cài đặt, không chỉ ở Trung tâm điều khiển) hoặc thoát hẳn Mi Fitness.</p>
@@ -223,11 +223,11 @@ html { scroll-behavior: smooth; }
       <div class="pair">
         <ol class="steps">
           <li><div><h3>Bấm “Quét mã QR…”</h3><p>Nút nằm cạnh ô <b>Token</b> trong màn hình thiết lập. Một cửa sổ mã QR hiện ra.</p></div></li>
-          <li><div><h3>Quét bằng điện thoại</h3><p>Mở <b>Mi Fitness</b> hoặc <b>Xiaomi Home</b>, chọn biểu tượng quét mã, quét mã trên màn hình Mac rồi bấm xác nhận đăng nhập.</p></div></li>
+          <li><div><h3>Quét bằng camera điện thoại</h3><p>Mở <b>Camera</b> (hoặc app <b>Xiaomi Home</b>), quét mã trên màn hình Mac. Trang đăng nhập của Xiaomi hiện ra: đăng nhập đúng tài khoản đã ghép vòng. <b>App Mi Fitness không quét được mã này</b>, vì máy quét của nó chỉ dùng để thêm thiết bị. Không có điện thoại? Bấm <b>Không có điện thoại? Đăng nhập trên máy Mac…</b> để mở cùng trang đó trên trình duyệt của Mac.</p></div></li>
           <li><div><h3>Token tự điền</h3><p>App tìm vòng trong tài khoản, tự điền token, chọn đời vòng và chọn đúng vòng theo địa chỉ MAC. Nếu tài khoản có nhiều vòng, chọn vòng muốn dùng rồi bấm <b>Dùng vòng này</b>.</p></div></li>
         </ol>
         <figure class="shot">
-          <img src="img/qr.png" width="380" height="520" alt="Cửa sổ Lấy token bằng mã QR, có mã QR ở giữa và nút Tạo mã mới">
+          <img src="img/qr.png" width="380" height="580" alt="Cửa sổ Lấy token bằng mã QR, có mã QR ở giữa và nút Tạo mã mới">
           <figcaption>Mã QR hết hạn sau 5 phút. Khi đó bấm <b>Tạo mã mới</b>. Mã trong ảnh chỉ là hình minh hoạ.</figcaption>
         </figure>
       </div>
@@ -242,12 +242,13 @@ html { scroll-behavior: smooth; }
           <figcaption>Màn hình thiết lập sau khi quét mã QR: đời vòng, token và vòng đều đã được chọn.</figcaption>
         </figure>
         <ol class="steps">
-          <li><div><h3>Bật sáng màn hình vòng</h3><p>Vòng tắt màn hình thì phát tín hiệu thưa, khó tìm hơn.</p></div></li>
+          <li><div><h3>Cho vòng phát tín hiệu</h3><p>Tắt Bluetooth trên điện thoại, rồi trên vòng mở <b>Tìm điện thoại</b>. Lúc đi tìm điện thoại, vòng phát tín hiệu nên Mac thấy được nó. Chỉ cần làm lần đầu: sau đó macOS giữ kết nối với vòng và app tự kết nối lại mỗi lần mở.</p></div></li>
           <li><div><h3>Bấm “Tìm vòng”</h3><p>App quét khoảng 8 giây và liệt kê các vòng Xiaomi ở gần, kèm địa chỉ MAC và cường độ tín hiệu. Vòng mà macOS đang giữ kết nối cũng hiện trong danh sách.</p></div></li>
           <li><div><h3>Bấm “Lưu và kết nối”</h3><p>App lưu thông tin và kết nối ngay. Vòng sẽ hiện màn hình tập luyện: đó là “buổi tập ẩn” app dùng để đọc cảm biến, không ảnh hưởng dữ liệu sức khoẻ của bạn.</p></div></li>
         </ol>
       </div>
       <p class="muted">Muốn đổi sang vòng khác, đổi token hay quét lại, bấm <b>Thiết lập thiết bị…</b> trong cửa sổ điều khiển hoặc menu ⌚︎.</p>
+      <p class="note">Khi có bản mới trên GitHub, dòng <b>Có bản mới</b> hiện bên phải hàng <b>Điều khiển</b>, kèm nút <b>Tải về…</b> và <b>Bỏ qua</b>. App chỉ báo, không tự cài gì. Tắt việc tự kiểm tra bằng mục <b>Tu kiem tra ban moi</b> trên thanh menu.</p>
     </section>
 
     <section id="hieu-chinh">
@@ -294,6 +295,7 @@ html { scroll-behavior: smooth; }
         <div class="icon-row"><span class="glyph">⌚︎⇅</span><span>Đang ngửa tay để cuộn nhanh</span></div>
         <div class="icon-row"><span class="glyph">⌚︎▶︎</span><span>Chế độ Trình chiếu</span></div>
         <div class="icon-row"><span class="glyph">⌚︎♫</span><span>Chế độ Media</span></div>
+        <div class="icon-row"><span class="glyph">⌚︎🔊</span><span>Núm âm lượng đang bật (xoay cổ tay)</span></div>
         <div class="icon-row"><span class="glyph">⌚︎‖</span><span>Tạm dừng</span></div>
         <div class="icon-row"><span class="glyph">⌚︎!</span><span>Có lỗi, xem dòng trạng thái</span></div>
       </div>
@@ -423,11 +425,14 @@ html { scroll-behavior: smooth; }
 
     <section id="che-do">
       <h2><span class="n">8</span>Chế độ Trình chiếu và Media</h2>
-      <p>Hàng <b>Điều khiển</b> ở đầu cửa sổ (hoặc mục <b>Che do dieu khien</b> trên thanh menu) chọn vòng tay dùng để làm gì. Ở <b>Trình chiếu</b> và <b>Media</b>, con trỏ đứng yên và cử chỉ trở thành lệnh, nên bạn có thể vừa nói vừa cầm vòng mà không lo chuột chạy lung tung.</p>
+      <p>Hàng <b>Điều khiển</b> ở đầu cửa sổ (hoặc mục <b>Che do dieu khien</b> trên thanh menu) chọn vòng tay dùng để làm gì. Ở <b>Trình chiếu</b> và <b>Media</b>, con trỏ chuột đứng yên và cử chỉ trở thành lệnh, nên bạn có thể vừa nói vừa cầm vòng mà không lo chuột chạy lung tung.</p>
       <div class="table-wrap">
         <table>
           <tr><th>Cử chỉ</th><th>Chuột</th><th>Trình chiếu</th><th>Media</th></tr>
-          <tr><td>Chụm 2 lần</td><td>Click trái</td><td>Slide tiếp</td><td>Phát / dừng</td></tr>
+          <tr><td>Di tay</td><td>Di chuột</td><td>Di chấm đỏ</td><td>–</td></tr>
+          <tr><td>Chụm 2 lần</td><td>Click trái</td><td>Slide tiếp</td><td>Bật / tắt núm âm lượng</td></tr>
+          <tr><td>Xoay cổ tay (núm đang bật)</td><td>–</td><td>–</td><td>Tăng / giảm âm lượng</td></tr>
+          <tr><td>Chụm 3 lần</td><td>–</td><td>–</td><td>Phát / dừng</td></tr>
           <tr><td>Lia tay nhanh sang phải</td><td>Di chuột</td><td>Slide tiếp</td><td>Bài sau</td></tr>
           <tr><td>Lia tay nhanh sang trái</td><td>Di chuột</td><td>Slide trước</td><td>Bài trước</td></tr>
           <tr><td>Lia tay nhanh lên / xuống</td><td>Di chuột</td><td>–</td><td>Tăng / giảm âm lượng</td></tr>
@@ -438,8 +443,10 @@ html { scroll-behavior: smooth; }
         <li><b>Lia dứt khoát:</b> một cú lia nhanh, dài khoảng 10° trở lên, đi gần thẳng một hướng. Rê tay chậm hay lia chéo không tính.</li>
         <li><b>Đưa tay về từ từ:</b> trong 0,8 giây sau một cú lia, động tác đưa tay về bị bỏ qua. Sau đó, đưa tay về chậm để không thành cú lia ngược lại.</li>
         <li><b>Trình chiếu</b> gửi phím mũi tên phải / trái, chạy được với Keynote, PowerPoint, Google Slides và trình xem PDF. Hãy để cửa sổ trình chiếu ở phía trước.</li>
+        <li><b>Chấm đỏ:</b> ở Trình chiếu, di tay là di một chấm đỏ như bút laser, nổi trên cả slide toàn màn hình và đi được sang máy chiếu. Tay đứng yên 3 giây thì chấm mờ dần. Khi bạn lia để chuyển slide, chấm tự về chỗ cũ. Tắt bằng mục <b>Trinh chieu: cham do theo tay</b> trên thanh menu.</li>
         <li><b>Media</b> dùng phím phát nhạc của Mac, nên điều khiển được Apple Music, Spotify, YouTube trên trình duyệt…</li>
-        <li>Chụm 2 lần luôn hoạt động ở hai chế độ này, kể cả khi ô <b>Click trái</b> đang tắt. Chế độ đang chọn không lưu theo hồ sơ.</li>
+        <li><b>Núm âm lượng:</b> ở Media, chụm 2 lần để bật (biểu tượng ⌚︎🔊), rồi xoay cổ tay như vặn núm: khoảng 6° là một nấc, ô âm lượng của macOS hiện lên. Chụm 2 lần nữa để tắt; để yên 10 giây núm cũng tự tắt. Xoay bị ngược chiều thì bật <b>Media: dao chieu xoay am luong</b> trên thanh menu. Vì phải chờ xem có lần chụm thứ 3 không, chụm 2 lần ở Media phản hồi chậm hơn khoảng nửa giây.</li>
+        <li>Chụm luôn hoạt động ở hai chế độ này, kể cả khi ô <b>Click trái</b> đang tắt. Chế độ đang chọn không lưu theo hồ sơ.</li>
       </ul>
     </section>
 
@@ -468,7 +475,7 @@ html { scroll-behavior: smooth; }
       <div class="table-wrap">
         <table>
           <tr><th>Hiện tượng</th><th>Cách xử lý</th></tr>
-          <tr><td>Không tìm thấy vòng</td><td>Bật sáng màn hình vòng, tắt hẳn Bluetooth điện thoại, đặt vòng gần Mac rồi bấm <b>Tìm vòng</b> lại.</td></tr>
+          <tr><td>Không tìm thấy vòng</td><td>Tắt hẳn Bluetooth điện thoại (trong Cài đặt), trên vòng mở <b>Tìm điện thoại</b>, đặt vòng gần Mac rồi bấm <b>Tìm vòng</b> lại.</td></tr>
           <tr><td>Báo “Peer removed pairing information”, hoặc kết nối bị treo</td><td>Vào <b>System Settings → Bluetooth</b>, bấm <b>ⓘ</b> cạnh <i>Xiaomi Smart Band 10</i>, chọn <b>Forget This Device</b>, rồi mở lại app.</td></tr>
           <tr><td>Báo sai token</td><td>Token đổi mỗi khi vòng được reset hoặc ghép đôi lại với Mi Fitness. Vào <b>Thiết lập thiết bị…</b> và quét mã QR lại.</td></tr>
           <tr><td>Kết nối được nhưng chuột đứng yên</td><td>Thiếu quyền Trợ năng: xem dòng đỏ trong cửa sổ và làm theo <a href="#mo-app">bước 2</a>.</td></tr>

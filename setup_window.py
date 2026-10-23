@@ -111,8 +111,8 @@ class SetupWindow(NSObject):
         self.view.addSubview_(self.token_field)
         self._button("Quét mã QR…", "getToken:", W - PAD - 122, y - 2, 122)
         y += 32
-        self._label("Bấm “Quét mã QR…” rồi quét bằng app Mi Fitness hoặc Xiaomi Home (tài khoản đã "
-                    "ghép vòng). Token sẽ được điền tự động.",
+        self._label("Bấm “Quét mã QR…”, quét bằng camera điện thoại rồi đăng nhập tài khoản Xiaomi "
+                    "đã ghép vòng. Token sẽ được điền tự động.",
                     x2, y, w2, 11, color=A.NSColor.secondaryLabelColor(), h=30)
         y += 46
 
@@ -123,7 +123,7 @@ class SetupWindow(NSObject):
         self.view.addSubview_(self.band_popup)
         self.scan_button = self._button("Tìm vòng", "scan:", W - PAD - 122, y - 1, 122)
         y += 34
-        self.scan_status = self._label("Bật sáng màn hình vòng và tắt Bluetooth điện thoại, rồi bấm “Tìm vòng”.",
+        self.scan_status = self._label("Tắt Bluetooth điện thoại, trên vòng mở “Tìm điện thoại”, rồi bấm “Tìm vòng”.",
                                        x2, y, w2, 11, color=A.NSColor.secondaryLabelColor(), h=30)
         y += 50
 
@@ -200,8 +200,9 @@ class SetupWindow(NSObject):
         if error is not None:
             self.scan_status.setStringValue_(f"Không tìm được: {error}")
         elif not found:
-            self.scan_status.setStringValue_("Chưa thấy vòng nào. Bật sáng màn hình vòng, tắt Bluetooth "
-                                             "điện thoại rồi bấm “Tìm vòng” lại.")
+            # "Find phone" on the band makes it advertise while it looks for the phone (user-tested)
+            self.scan_status.setStringValue_("Chưa thấy vòng. Tắt Bluetooth điện thoại, trên vòng mở "
+                                             "“Tìm điện thoại” rồi bấm “Tìm vòng” lại.")
         else:
             self.scan_status.setStringValue_(f"Tìm thấy {len(found)} vòng. Đối chiếu địa chỉ MAC với kết "
                                              "quả lấy token nếu có nhiều vòng.")
@@ -258,7 +259,7 @@ class QrWindow(NSObject):
 
     @objc.python_method
     def _build(self):
-        w, h = 380, 520
+        w, h = 380, 564
         self.h = h
         self.window = A.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             A.NSMakeRect(0, 0, w, h), A.NSWindowStyleMaskTitled | A.NSWindowStyleMaskClosable,
@@ -282,17 +283,18 @@ class QrWindow(NSObject):
             view.addSubview_(f)
             return f
 
-        label("Quét mã bằng Mi Fitness hoặc Xiaomi Home", 18, 22, 15, bold=True)
-        label("Mở app trên điện thoại (đăng nhập tài khoản đã ghép vòng) → biểu tượng quét mã → xác nhận đăng nhập.",
-              44, 34, 11, secondary=True)
-        self.image = A.NSImageView.alloc().initWithFrame_(A.NSMakeRect((w - 260) / 2, h - 88 - 260, 260, 260))
+        label("Quét mã bằng camera điện thoại", 18, 22, 15, bold=True)
+        # The code is a link to Xiaomi's own sign-in page; Mi Fitness's scanner only adds devices.
+        label("Mở Camera (hoặc app Xiaomi Home), quét mã, rồi đăng nhập tài khoản Xiaomi đã ghép vòng "
+              "trên trang vừa mở. App Mi Fitness không quét được mã này.", 44, 50, 11, secondary=True)
+        self.image = A.NSImageView.alloc().initWithFrame_(A.NSMakeRect((w - 260) / 2, h - 104 - 260, 260, 260))
         self.image.setImageScaling_(A.NSImageScaleProportionallyUpOrDown)
         self.image.setWantsLayer_(True)
         self.image.layer().setBackgroundColor_(A.NSColor.whiteColor().CGColor())
         self.image.layer().setCornerRadius_(10)
         view.addSubview_(self.image)
-        self.status = label("", 360, 36, 12)
-        self.picker = A.NSPopUpButton.alloc().initWithFrame_pullsDown_(A.NSMakeRect(PAD, h - 400 - 28, w - 2 * PAD, 28), False)
+        self.status = label("", 376, 36, 12)
+        self.picker = A.NSPopUpButton.alloc().initWithFrame_pullsDown_(A.NSMakeRect(PAD, h - 416 - 28, w - 2 * PAD, 28), False)
         self.picker.setHidden_(True)
         view.addSubview_(self.picker)
 
@@ -302,12 +304,14 @@ class QrWindow(NSObject):
             view.addSubview_(b)
             return b
 
-        self.retry = button("Tạo mã mới", "retry:", PAD, 440, 160)
-        self.use = button("Dùng vòng này", "use:", w - PAD - 160, 440, 160)
+        self.retry = button("Tạo mã mới", "retry:", PAD, 456, 160)
+        self.use = button("Dùng vòng này", "use:", w - PAD - 160, 456, 160)
         self.use.setKeyEquivalent_("\r")
-        self.password = button("Đăng nhập bằng mật khẩu (Terminal)…", "password:", PAD, 478, w - 2 * PAD)
-        self.password.setBordered_(False)
-        self.password.setContentTintColor_(A.NSColor.linkColor())
+        self.browser = button("Không có điện thoại? Đăng nhập trên máy Mac…", "browser:", PAD, 494, w - 2 * PAD)
+        self.password = button("Đăng nhập bằng mật khẩu (Terminal)…", "password:", PAD, 522, w - 2 * PAD)
+        for b in (self.browser, self.password):
+            b.setBordered_(False)
+            b.setContentTintColor_(A.NSColor.linkColor())
         self.window.center()
 
     # ---------- flow ----------
@@ -320,6 +324,8 @@ class QrWindow(NSObject):
     def _begin(self):
         self.cancelled = threading.Event()  # one per attempt: an older attempt keeps its own
         self.devices = []
+        self.login_url = None
+        self.browser.setEnabled_(False)
         self.picker.setHidden_(True)
         self.use.setEnabled_(False)
         self.retry.setEnabled_(False)
@@ -336,7 +342,7 @@ class QrWindow(NSObject):
             return AppHelper.callAfter(self._fail, f"Không lấy được mã QR: {e}")
         if cancelled.is_set():
             return
-        AppHelper.callAfter(self._show_qr, png)
+        AppHelper.callAfter(self._show_qr, png, login.login_url)
         try:
             ok = login.wait(cancelled.is_set)
         except Exception as e:
@@ -353,10 +359,12 @@ class QrWindow(NSObject):
         AppHelper.callAfter(self._got_devices, devices)
 
     @objc.python_method
-    def _show_qr(self, png):
+    def _show_qr(self, png, login_url):
         data = A.NSData.dataWithBytes_length_(png, len(png))
         self.image.setImage_(A.NSImage.alloc().initWithData_(data))
-        self.status.setStringValue_("Đang chờ bạn quét mã và xác nhận trên điện thoại… (mã hết hạn sau 5 phút)")
+        self.login_url = login_url
+        self.browser.setEnabled_(login_url.startswith("https://") and ".account.xiaomi.com/" in login_url)
+        self.status.setStringValue_("Đang chờ bạn quét mã và đăng nhập… (mã hết hạn sau 5 phút)")
 
     @objc.python_method
     def _fail(self, message):
@@ -396,6 +404,13 @@ class QrWindow(NSObject):
         if 0 <= i < len(self.devices):
             self.setup.use_cloud_band(self.devices[i])
             self.window.orderOut_(None)
+
+    def browser_(self, sender):
+        """The same sign-in page the QR code opens, in the Mac's browser: signing in there
+        completes this login too."""
+        if self.login_url:
+            subprocess.run(["open", self.login_url])
+            self.status.setStringValue_("Đăng nhập tài khoản Xiaomi trên trình duyệt vừa mở, rồi quay lại đây…")
 
     def password_(self, sender):
         self.cancelled.set()

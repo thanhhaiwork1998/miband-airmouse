@@ -203,6 +203,17 @@ class ControlWindow(NSObject):
                 A.NSImage.imageWithSystemSymbolName_accessibilityDescription_(symbol, label), i)
         self.seg_control.setFrame_(A.NSMakeRect(PAD + 84, self.h - self.y - 28, 420, 28))
         self.view.addSubview_(self.seg_control)
+        # A newer release on GitHub: shown in the free space beside the mode picker
+        self.update_label = self._label("", PAD + 520, self.y + 6, 150, 13, bold=True,
+                                        color=A.NSColor.systemBlueColor())
+        for title, action, x, w in (("Tải về…", "open_update", PAD + 672, 90), ("Bỏ qua", "skip_update", PAD + 766, 58)):
+            b = A.NSButton.buttonWithTitle_target_action_(title, self, "buttonClicked:")
+            b.setFrame_(A.NSMakeRect(x, self.h - self.y - 30, w, 30))
+            b.setTag_(self._tag(action))
+            self.view.addSubview_(b)
+            self.buttons[action] = b
+        self.buttons["open_update"].setKeyEquivalent_("")
+        self.buttons["open_update"].setBezelColor_(A.NSColor.systemBlueColor())
         self.y += 38
         top = self.y
 
@@ -341,6 +352,10 @@ class ControlWindow(NSObject):
         if app.active_profile() in names:
             self.profile_popup.selectItemWithTitle_(app.active_profile())
         self.profile_dirty.setStringValue_("• chưa lưu" if app.profile_dirty() else "")
+        info = app.update_available()
+        self.update_label.setStringValue_(f"Có bản mới {info['version']}" if info else "")
+        for v in (self.update_label, self.buttons["open_update"], self.buttons["skip_update"]):
+            v.setHidden_(info is None)
 
         motion = (p.motion[0] ** 2 + p.motion[1] ** 2) ** 0.5
         s = app.settings
