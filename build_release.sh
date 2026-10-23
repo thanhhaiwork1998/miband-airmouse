@@ -63,4 +63,5 @@ codesign --verify --deep --strict "$APP"
 ZIP="dist/MiBand-AirMouse-$VERSION-$ARCH.zip"
 rm -f "$ZIP"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+rm -rf "$OUT"  # only the zip is kept: a stray .app would show up in Spotlight/Launchpad
 echo "Built: $ZIP ($(du -h "$ZIP" | cut -f1))"
