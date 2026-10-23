@@ -21,6 +21,14 @@ Lia cẳng tay để di chuyển con trỏ, chụm ngón tay để click, chụm
 | Lật ngửa tay rồi hất lên | Cuộn trang nhanh |
 | Đưa tay tới hoặc kéo về | Được bỏ qua, con trỏ đứng yên |
 
+**Chế độ điều khiển** (chọn ngay trên cửa sổ app):
+
+| Cử chỉ | 🖱 Chuột | ▶️ Trình chiếu | 🎵 Media |
+|---|---|---|---|
+| Chụm 2 lần | Click trái | Slide tiếp | Phát / dừng |
+| Lia nhanh sang phải / trái | Di chuột | Slide tiếp / trước | Bài sau / trước |
+| Lia nhanh lên / xuống | Di chuột | – | Tăng / giảm âm lượng |
+
 Ngoài ra:
 - **Thiết lập lần đầu bằng mã QR**: đăng nhập tài khoản Xiaomi bằng app Mi Fitness / Xiaomi Home để lấy token của vòng, không cần nhập mật khẩu.
 - **Cửa sổ điều khiển**: đo trực tiếp lực từng cử chỉ so với ngưỡng, thanh trượt cho mọi thông số, chạy nền trên thanh menu.
@@ -129,4 +137,4 @@ Dự án cá nhân, không liên quan tới Xiaomi. Xiaomi, Mi Band và Mi Fitne
 
 ### English
 
-MiBand AirMouse turns a **Xiaomi Smart Band 10** into an air mouse for macOS: point with your forearm to move the cursor, double-pinch thumb and index finger to click, pinch four times to scroll. It talks to the band directly over BLE (Xiaomi's encrypted "BLE V2" protocol, ported from Gadgetbridge) and streams the raw accelerometer/gyroscope through a hidden workout session. First-run setup fetches the band's auth key by QR login to your Xiaomi account. Download the prebuilt app (Python bundled; arm64 or x86_64) from [Releases](https://github.com/thanhhaiwork1998/miband-airmouse/releases/latest); on first launch allow it under System Settings → Privacy & Security → Open Anyway, since it is not notarized. Or run from source with the commands above (clone into `~/airmouse`). Licensed under AGPL-3.0.
+MiBand AirMouse turns a **Xiaomi Smart Band 10** into an air mouse for macOS: point with your forearm to move the cursor, double-pinch thumb and index finger to click, pinch four times to scroll. Presenter and media modes turn pinches and quick swipes into slide, playback and volume commands. It talks to the band directly over BLE (Xiaomi's encrypted "BLE V2" protocol, ported from Gadgetbridge) and streams the raw accelerometer/gyroscope through a hidden workout session. First-run setup fetches the band's auth key by QR login to your Xiaomi account. Download the prebuilt app (Python bundled; arm64 or x86_64) from [Releases](https://github.com/thanhhaiwork1998/miband-airmouse/releases/latest); on first launch allow it under System Settings → Privacy & Security → Open Anyway, since it is not notarized. Or run from source with the commands above (clone into `~/airmouse`). Licensed under AGPL-3.0.

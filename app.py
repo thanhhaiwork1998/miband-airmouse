@@ -15,7 +15,7 @@ from collections import deque
 
 import Quartz
 import rumps
-from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+from AppKit import NSApplication, NSApplicationActivationPolicyAccessory, NSEvent
 
 from band import Band
 from watch_source import WatchSource
@@ -33,11 +33,12 @@ LOG = os.path.join(DATA, "app.log")
 REQUESTS = set()  # "show" / "quit" asked for by the Dock launcher's signals
 PARENT = os.getppid()  # the Dock launcher; if it dies without signalling, don't linger
 DEFAULT_PROFILE = "Mặc định"
-PROFILE_SKIP = {"gestures_v2", "gestures_v3"}
+PROFILE_SKIP = {"gestures_v2", "gestures_v3", "control_mode"}  # the mode is a moment's choice, not tuning
 
 SPEEDS = {"Cham": 300, "Vua": 600, "Nhanh": 1000}
 ACCELS = {"Tat": 0.0, "Vua": 1.5, "Manh": 3.0, "Rat manh": 5.0}
 MODES = {"Theo mat phang (khuyen dung)": "plane", "Theo truc cam bien (cu)": "axes"}
+CONTROL_MODES = {"Chuot": "mouse", "Trinh chieu": "slides", "Media (nhac, video)": "media"}
 CLICK_LEVELS = {"Nhay": 2.5, "Vua": 4.0, "Cung": 6.0}  # twist rate (gyro units) that counts as a click
 # Jolt (m/s^2) above which a transient is a wrist tap rather than a pinch; must stay between
 # the user's strongest pinch (1.2) and weakest tap (3.3).
@@ -56,6 +57,7 @@ DEFAULTS.update({"mode": "plane", "forearm_axis": "x", "invert_yaw": False, "inv
                  "pinch_enabled": True, "pinch_threshold": 0.1,  # rad/s gyro jerk (rest <0.021, pinches 0.19-0.40)
                  "scroll_enabled": True, "scroll_speed": 1500, "scroll_invert": False,  # px per rad of flick
                  "smoothing": "Vua", "drag_scroll_enabled": True,
+                 "control_mode": "mouse",  # or "slides" (presenter) / "media" (music, video)
                  "device": "miband"})  # or "applewatch"
 
 
@@ -109,6 +111,16 @@ JOY_DEAD = 0.05        # rad (~3 deg) of height change that doesn't scroll (rest
 JOY_CURVE = 1.7        # speed ~ (angle past JOY_DEAD)^JOY_CURVE: a slight tilt reads, a big one races
 JOY_GAIN = 3.0         # speed in px/s = scroll_speed * JOY_GAIN * angle^JOY_CURVE
 JOY_MAX = 0.8          # rad; tilting further doesn't scroll faster
+# Presenter / media modes: the cursor stays put; a quick swipe of the hand is a command.
+SWIPE_START = 0.8      # rad/s: hand speed above which a stroke is being collected
+SWIPE_RATE = 1.5       # rad/s peak a stroke needs to be a swipe (relaxed pointing ~0.5-1.5)
+SWIPE_ANGLE = 0.2      # rad (~11 deg) a swipe must travel
+SWIPE_RATIO = 1.5      # the main direction must be this much larger than the other
+SWIPE_GUARD = 0.8      # s after a swipe in which the hand's way back is ignored
+VOLUME_STEPS = 2       # volume key presses per swipe up/down
+KEY_RIGHT, KEY_LEFT = 124, 123        # macOS virtual key codes
+MEDIA_PLAY, MEDIA_NEXT, MEDIA_PREVIOUS = 16, 17, 18   # NX_KEYTYPE_* (ev_keymap.h)
+MEDIA_SOUND_UP, MEDIA_SOUND_DOWN = 0, 1
 SERIES_SETTLE = 0.25   # s after a toggle/click in which pinch echoes can't start a new series
 PINCH_CONFIRM = 0.12   # s after a pinch in which the hand must stay put for it to count
 CONFIRM_RATE = 0.35    # rad/s: average band rotation in that time above which it was a sweep starting
@@ -276,6 +288,8 @@ class Pointer:
         self.dragging = False      # scroll mode (toggled by four pinches)
         self.joy_ref = None        # forearm height (up . forearm axis) when scroll mode started
         self.joy_drop = 0.0        # integrated hand drop, when gravity can't tell (sensor-axis mode)
+        self.stroke = None         # [dx, dy, peak speed] of a possible swipe (presenter / media)
+        self.swipe_guard = 0.0
         self.pending_click = None  # time a double pinch turns into a click unless a 3rd pinch comes
         self.settle_until = 0.0
         self.tentative = None     # a pinch awaiting confirmation that the hand stayed put
@@ -413,7 +427,11 @@ class Pointer:
             self.bias = _add(_scale(self.bias, 0.95), _scale(mean, 0.05))
         self._check_rest(still, gyro, now)
 
-        self._update_palm(now)
+        mouse = self.s["control_mode"] == "mouse"
+        if not mouse and (self.dragging or self.palm_up):
+            self.dragging = self.palm_up = False  # scrolling belongs to mouse mode
+        if mouse:
+            self._update_palm(now)
         ax, ay, at = AXIS[self.s["axis_x"]], AXIS[self.s["axis_y"]], self.twist_axis()
         plane = self.s["mode"] == "plane"
         thr = self.s["click_threshold"]
@@ -466,6 +484,12 @@ class Pointer:
             else:
                 gx, gy = w[ax], w[ay]
                 inv_x, inv_y = self.s["invert_x"], self.s["invert_y"]
+            if not mouse:
+                # Presenter / media: the cursor stays put. Swipes are commands; the anchor still
+                # runs, so a resting hand's double pinch is heard.
+                self._swipe(gx * (-1 if inv_x else 1), gy * (-1 if inv_y else 1), ts, dt)
+                self._anchored(gx, gy, ts, dt, tapping)
+                continue
             if self.palm_up:
                 # Palm turned up: the cursor holds still and upward flicks scroll the page.
                 self._scroll_flick(gy * (1 if inv_y else -1), dt)  # physical upward speed
@@ -620,7 +644,7 @@ class Pointer:
         """After the hand rests for anchor_time the cursor locks in place, so small tremor and
         the jolt of tapping can't nudge it off the target. A deliberate move (net turn of
         ESCAPE_ANGLE of net travel, see below) releases it."""
-        if not self.s["anchor_enabled"]:
+        if not self.s["anchor_enabled"] and self.s["control_mode"] == "mouse":
             self.anchored = False
             return False
         # Judge rest on ~0.1s-averaged motion: single samples of hand tremor must not keep
@@ -744,7 +768,8 @@ class Pointer:
         elif kind == "tap":
             self.last_tap = start
         log(f"{kind or 'transient'} jolt={jolt:.2f} jerk={jerk:.3f} rate={rate:.2f} drift={drift:.2f}")
-        if not kind or not self.s[f"{kind}_enabled"]:
+        enabled = kind and (self.s[f"{kind}_enabled"] or kind == "pinch" and self.s["control_mode"] != "mouse")
+        if not enabled:
             return
         if kind == "pinch" and start < self.settle_until:
             log("pinch ignored (settling after a toggle/click)")
@@ -774,7 +799,8 @@ class Pointer:
             self.first = {}
             self._press(right=True)  # two wrist taps = right click
             return
-        enabled = self.s["drag_scroll_enabled"]
+        mouse = self.s["control_mode"] == "mouse"
+        enabled = self.s["drag_scroll_enabled"] and mouse
         if count >= SCROLL_PINCHES and enabled:
             self.first, self.pending_click = {}, None
             self._set_scroll_mode(not self.dragging, start)  # four pinches: scroll mode (on/off)
@@ -789,10 +815,72 @@ class Pointer:
                 self.pending_click = start + TRIPLE_GAP + EVENT_WINDOW + PINCH_CONFIRM
             else:
                 self.first = {}
-                self._press(right=False)  # two pinches = left click
+                if mouse:
+                    self._press(right=False)  # two pinches = left click
+                else:
+                    self._command("pinch")
                 self.settle_until = start + SERIES_SETTLE
         elif count == 3:
             self.pending_click = None  # three pinches: heading for four, not a click
+
+    def _swipe(self, sx, sy, ts, dt):
+        """A quick, mostly straight stroke of the hand (sx > 0 = right, sy > 0 = down, rad/s)
+        is a swipe, judged once the hand slows down again. Pointing-speed motion isn't."""
+        if ts < self.swipe_guard:
+            self.stroke = None  # the hand coming back after a swipe
+            return
+        speed = math.hypot(sx, sy)
+        if speed > SWIPE_START:
+            if self.stroke is None:
+                self.stroke = [0.0, 0.0, 0.0]
+            st = self.stroke
+            st[0], st[1], st[2] = st[0] + sx * dt, st[1] + sy * dt, max(st[2], speed)
+            return
+        if self.stroke is None:
+            return
+        dx, dy, peak = self.stroke
+        self.stroke = None
+        if peak < SWIPE_RATE or math.hypot(dx, dy) < SWIPE_ANGLE:
+            return
+        if abs(dx) >= SWIPE_RATIO * abs(dy):
+            direction = "right" if dx > 0 else "left"
+        elif abs(dy) >= SWIPE_RATIO * abs(dx):
+            direction = "down" if dy > 0 else "up"
+        else:
+            log(f"swipe ignored: diagonal ({dx:.2f}, {dy:.2f})")
+            return
+        self.swipe_guard = ts + SWIPE_GUARD
+        self.anchored, self.escape, self.first, self.pending_click = False, [], {}, None
+        self._command(direction)
+
+    def _command(self, gesture):
+        """What a gesture does in presenter / media mode."""
+        if self.paused:
+            return
+        mode = self.s["control_mode"]
+        if mode == "slides":
+            key = {"pinch": KEY_RIGHT, "right": KEY_RIGHT, "left": KEY_LEFT}.get(gesture)
+            if key is not None:
+                self._key(key)
+                log(f"slides: {gesture} -> {'next' if key == KEY_RIGHT else 'previous'}")
+        elif mode == "media":
+            keys = {"pinch": [MEDIA_PLAY], "right": [MEDIA_NEXT], "left": [MEDIA_PREVIOUS],
+                    "up": [MEDIA_SOUND_UP] * VOLUME_STEPS, "down": [MEDIA_SOUND_DOWN] * VOLUME_STEPS}[gesture]
+            for k in keys:
+                self._media_key(k)
+            log(f"media: {gesture}")
+
+    def _key(self, code):
+        for down in (True, False):
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, Quartz.CGEventCreateKeyboardEvent(None, code, down))
+
+    def _media_key(self, key):
+        """Play/pause, next, volume... are not key codes but system-defined events (subtype 8),
+        the way the keyboard's media row sends them."""
+        for state in (0xA, 0xB):  # key down, key up
+            ev = NSEvent.otherEventWithType_location_modifierFlags_timestamp_windowNumber_context_subtype_data1_data2_(
+                14, (0, 0), state << 8, 0, 0, None, 8, (key << 16) | (state << 8), -1)
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev.CGEvent())
 
     def _click(self, direction):
         self._press(right=True)  # twist = right click (left click is the double pinch)
@@ -1009,6 +1097,9 @@ class AirMouseApp(rumps.App):
         click_menu = rumps.MenuItem("Do nhay click")
         for name, value in CLICK_LEVELS.items():
             click_menu.add(rumps.MenuItem(name, callback=self.set_click_level))
+        control_menu = rumps.MenuItem("Che do dieu khien")
+        for name in CONTROL_MODES:
+            control_menu.add(rumps.MenuItem(name, callback=self.set_control_mode))
         mode_menu = rumps.MenuItem("Che do di chuyen")
         for name in MODES:
             mode_menu.add(rumps.MenuItem(name, callback=self.set_mode))
@@ -1018,6 +1109,7 @@ class AirMouseApp(rumps.App):
             rumps.MenuItem("Thiet lap thiet bi...", callback=self.open_setup),
             rumps.MenuItem("Ho so"), None,
             self.toggle_item, self.pause_item, None,
+            control_menu, None,
             mode_menu, speed_menu, accel_menu, smooth_menu, None,
             self.anchor_item, self.pinch_item, pinch_menu, self.pinch_peak_item,
             self.tap_item, tap_menu, self.tap_peak_item, None,
@@ -1125,6 +1217,11 @@ class AirMouseApp(rumps.App):
         if self.state == "active":
             if p.paused:
                 return "‖  Tạm dừng"
+            mode = self.settings["control_mode"]
+            if mode == "slides":
+                return "▶︎  Trình chiếu – con trỏ đứng yên, cử chỉ điều khiển slide"
+            if mode == "media":
+                return "♫  Media – con trỏ đứng yên, cử chỉ điều khiển nhạc / video"
             if p.palm_up:
                 return "⇅  Chế độ cuộn trang (úp tay để quay lại)"
             if p.dragging:
@@ -1142,6 +1239,11 @@ class AirMouseApp(rumps.App):
         if self.state == "error":
             return getattr(self, "status_text", "")
         s = self.settings  # list only the gestures that are switched on
+        if s["control_mode"] == "slides":
+            return "Chụm 2 lần hoặc lia tay nhanh sang phải: slide tiếp · lia sang trái: slide trước"
+        if s["control_mode"] == "media":
+            return ("Chụm 2 lần: phát / dừng · lia phải / trái: bài sau / trước · "
+                    "lia lên / xuống: tăng / giảm âm lượng")
         parts = [("pinch_enabled", "Chụm 2 lần: click trái"),
                  ("drag_scroll_enabled", "Chụm 4 lần: chế độ cuộn (vẩy tay để thoát)"),
                  ("tap_enabled", "Gõ cổ tay 2 lần: click phải"),
@@ -1166,7 +1268,10 @@ class AirMouseApp(rumps.App):
         self.peak_item.title = f"Luc van gan day: {p.last_peak:.1f} (nguong {self.settings['click_threshold']})"
         self.tap_peak_item.title = f"Luc go gan day: {p.live_tap:.1f} (nguong {self.settings['tap_threshold']})"
         self.pinch_peak_item.title = f"Luc chum gan day: {p.live_pinch:.2f} (nguong {self.settings['pinch_threshold']})"
-        if state == "active" and p.palm_up:
+        mode = self.settings["control_mode"]
+        if state == "active" and mode != "mouse":
+            self.title = "⌚︎▶︎" if mode == "slides" else "⌚︎♫"
+        elif state == "active" and p.palm_up:
             self.title = "⌚︎⇅"
         elif state == "active" and p.dragging:
             self.title = "⌚︎⇕"
@@ -1184,6 +1289,8 @@ class AirMouseApp(rumps.App):
             self.menu["Do nhay click"][name].state = int(self.settings["click_threshold"] == value)
         for name, value in MODES.items():
             self.menu["Che do di chuyen"][name].state = int(self.settings["mode"] == value)
+        for name, value in CONTROL_MODES.items():
+            self.menu["Che do dieu khien"][name].state = int(self.settings["control_mode"] == value)
         self.click_item.state = int(self.settings["click_enabled"])
         self.anchor_item.state = int(self.settings["anchor_enabled"])
         self.tap_item.state = int(self.settings["tap_enabled"])
@@ -1316,6 +1423,17 @@ class AirMouseApp(rumps.App):
             time.sleep(0.2)
         if self.state == "calibrating":
             self.set_status("active", "Dang dieu khien chuot")
+
+    def set_control_mode(self, item):
+        self.set_control(CONTROL_MODES[item.title])
+
+    def set_control(self, mode):
+        """Mouse, presenter or media control (also from the window's picker)."""
+        self.settings["control_mode"] = mode
+        p = self.engine.pointer
+        p.stroke, p.pending_click, p.first = None, None, {}
+        log(f"control mode: {mode}")
+        self.save()
 
     def set_mode(self, item):
         self.settings["mode"] = MODES[item.title]

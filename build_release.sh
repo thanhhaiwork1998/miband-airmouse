@@ -8,7 +8,7 @@ set -e
 setopt null_glob
 cd "$(dirname "$0")"
 ARCH="${1:-arm64}"
-VERSION="${VERSION:-1.2.0}"
+VERSION="${VERSION:-1.3.0}"
 PY_RELEASE=20261021
 PY_VERSION=3.12.15
 case "$ARCH" in

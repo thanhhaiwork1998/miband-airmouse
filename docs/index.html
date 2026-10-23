@@ -180,6 +180,7 @@ html { scroll-behavior: smooth; }
       <li><a href="#hieu-chinh">Hiệu chỉnh hướng</a></li>
       <li><a href="#trang-thai">Đọc biểu tượng trạng thái</a></li>
       <li><a href="#cu-chi">Các cử chỉ</a></li>
+      <li><a href="#che-do">Chế độ Trình chiếu và Media</a></li>
       <li><a href="#tinh-chinh">Tinh chỉnh và hồ sơ</a></li>
       <li><a href="#su-co">Xử lý sự cố</a></li>
     </ol>
@@ -291,6 +292,8 @@ html { scroll-behavior: smooth; }
         <div class="icon-row"><span class="glyph">⌚︎⚓</span><span>Chuột đang neo, sẵn sàng click</span></div>
         <div class="icon-row"><span class="glyph">⌚︎⇕</span><span>Chế độ cuộn (chụm 4 lần)</span></div>
         <div class="icon-row"><span class="glyph">⌚︎⇅</span><span>Đang ngửa tay để cuộn nhanh</span></div>
+        <div class="icon-row"><span class="glyph">⌚︎▶︎</span><span>Chế độ Trình chiếu</span></div>
+        <div class="icon-row"><span class="glyph">⌚︎♫</span><span>Chế độ Media</span></div>
         <div class="icon-row"><span class="glyph">⌚︎‖</span><span>Tạm dừng</span></div>
         <div class="icon-row"><span class="glyph">⌚︎!</span><span>Có lỗi, xem dòng trạng thái</span></div>
       </div>
@@ -418,17 +421,39 @@ html { scroll-behavior: smooth; }
       <p class="note">Click phải đang <strong>tắt</strong> theo mặc định, vì bấm ngón tay mạnh dễ bị nhận nhầm. Nếu cần, bật <b>Click phải: gõ cổ tay 2 lần</b> trong cửa sổ điều khiển. Khi đó gõ cổ tay ra trước 2 lần sẽ là click phải.</p>
     </section>
 
+    <section id="che-do">
+      <h2><span class="n">8</span>Chế độ Trình chiếu và Media</h2>
+      <p>Hàng <b>Điều khiển</b> ở đầu cửa sổ (hoặc mục <b>Che do dieu khien</b> trên thanh menu) chọn vòng tay dùng để làm gì. Ở <b>Trình chiếu</b> và <b>Media</b>, con trỏ đứng yên và cử chỉ trở thành lệnh, nên bạn có thể vừa nói vừa cầm vòng mà không lo chuột chạy lung tung.</p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Cử chỉ</th><th>Chuột</th><th>Trình chiếu</th><th>Media</th></tr>
+          <tr><td>Chụm 2 lần</td><td>Click trái</td><td>Slide tiếp</td><td>Phát / dừng</td></tr>
+          <tr><td>Lia tay nhanh sang phải</td><td>Di chuột</td><td>Slide tiếp</td><td>Bài sau</td></tr>
+          <tr><td>Lia tay nhanh sang trái</td><td>Di chuột</td><td>Slide trước</td><td>Bài trước</td></tr>
+          <tr><td>Lia tay nhanh lên / xuống</td><td>Di chuột</td><td>–</td><td>Tăng / giảm âm lượng</td></tr>
+          <tr><td>Chụm 4 lần, ngửa tay</td><td>Cuộn trang</td><td>–</td><td>–</td></tr>
+        </table>
+      </div>
+      <ul>
+        <li><b>Lia dứt khoát:</b> một cú lia nhanh, dài khoảng 10° trở lên, đi gần thẳng một hướng. Rê tay chậm hay lia chéo không tính.</li>
+        <li><b>Đưa tay về từ từ:</b> trong 0,8 giây sau một cú lia, động tác đưa tay về bị bỏ qua. Sau đó, đưa tay về chậm để không thành cú lia ngược lại.</li>
+        <li><b>Trình chiếu</b> gửi phím mũi tên phải / trái, chạy được với Keynote, PowerPoint, Google Slides và trình xem PDF. Hãy để cửa sổ trình chiếu ở phía trước.</li>
+        <li><b>Media</b> dùng phím phát nhạc của Mac, nên điều khiển được Apple Music, Spotify, YouTube trên trình duyệt…</li>
+        <li>Chụm 2 lần luôn hoạt động ở hai chế độ này, kể cả khi ô <b>Click trái</b> đang tắt. Chế độ đang chọn không lưu theo hồ sơ.</li>
+      </ul>
+    </section>
+
     <section id="tinh-chinh">
-      <h2><span class="n">8</span>Tinh chỉnh và hồ sơ</h2>
+      <h2><span class="n">9</span>Tinh chỉnh và hồ sơ</h2>
       <p>Bấm biểu tượng app trên Dock để mở cửa sổ điều khiển. Mọi thanh trượt có hiệu lực ngay khi kéo. Phần <b>Đo trực tiếp</b> cho thấy lực mỗi cử chỉ so với ngưỡng: thanh chuyển vàng khi vượt ngưỡng, nhờ vậy bạn biết nên chỉnh lên hay xuống.</p>
       <figure class="shot">
-        <img src="img/control.png" width="860" height="698" alt="Cửa sổ điều khiển với các thanh đo trực tiếp, thanh trượt và công tắc cử chỉ">
+        <img src="img/control.png" width="860" height="736" alt="Cửa sổ điều khiển với các thanh đo trực tiếp, thanh trượt và công tắc cử chỉ">
         <figcaption>Cửa sổ điều khiển. Thu nhỏ hoặc đóng thì app vẫn chạy trên thanh menu ⌚︎.</figcaption>
       </figure>
       <div class="table-wrap">
         <table>
           <tr><th>Muốn</th><th>Chỉnh</th></tr>
-          <tr><td>Tay di ít mà vẫn đi hết màn hình</td><td><b>Tăng tốc khi lia nhanh</b> lên khoảng 3–5. Giữ <b>Tốc độ</b> ở khoảng 600.</td></tr>
+          <tr><td>Tay di ít mà vẫn đi hết màn hình</td><td>Tăng <b>Tốc độ</b> (tối đa 3000) và <b>Tăng tốc khi lia nhanh</b> (tối đa 10). Nếu con trỏ bắt đầu rung, tăng thêm <b>Vùng chết</b>.</td></tr>
           <tr><td>Con trỏ rung khi nhắm</td><td><b>Độ mượt</b>: Mạnh. Hoặc tăng <b>Vùng chết</b> một chút.</td></tr>
           <tr><td>Chụm ngón hay bị hụt</td><td><b>Ngưỡng chụm ngón</b> khoảng <span class="mono">0.06–0.08</span>. Đừng hạ thấp hơn: khi đó cả rung lúc nhả ngón cũng bị đếm, làm click hụt nhiều hơn.</td></tr>
           <tr><td>Trang cuộn ngược ý</td><td>Bật <b>Đảo chiều cuộn</b>.</td></tr>
@@ -439,7 +464,7 @@ html { scroll-behavior: smooth; }
     </section>
 
     <section id="su-co">
-      <h2><span class="n">9</span>Xử lý sự cố</h2>
+      <h2><span class="n">10</span>Xử lý sự cố</h2>
       <div class="table-wrap">
         <table>
           <tr><th>Hiện tượng</th><th>Cách xử lý</th></tr>

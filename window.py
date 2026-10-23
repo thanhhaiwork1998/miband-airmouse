@@ -39,6 +39,8 @@ CHECKS = [
 ]
 
 MODES = [("plane", "Theo mặt phẳng"), ("axes", "Theo trục cảm biến")]
+CONTROL_MODES = [("mouse", "Chuột", "cursorarrow"), ("slides", "Trình chiếu", "play.rectangle"),
+                 ("media", "Media", "music.note")]  # key, label, SF Symbol
 SMOOTH_NAMES = [("Tat", "Tắt"), ("Vua", "Vừa"), ("Manh", "Mạnh")]
 
 
@@ -193,6 +195,15 @@ class ControlWindow(NSObject):
         self._buttons([("Tắt chuột bay", "toggle"), ("Tạm dừng", "pause"), ("Thu nhỏ xuống thanh menu", "hide"),
                        ("Thoát ứng dụng", "quit")])
         self._profile_row()
+        self._label("Điều khiển", PAD, self.y + 5, 80, 13, bold=True)
+        self.seg_control = A.NSSegmentedControl.segmentedControlWithLabels_trackingMode_target_action_(
+            [label for _, label, _ in CONTROL_MODES], A.NSSegmentSwitchTrackingSelectOne, self, "controlChanged:")
+        for i, (_, label, symbol) in enumerate(CONTROL_MODES):
+            self.seg_control.setImage_forSegment_(
+                A.NSImage.imageWithSystemSymbolName_accessibilityDescription_(symbol, label), i)
+        self.seg_control.setFrame_(A.NSMakeRect(PAD + 84, self.h - self.y - 28, 420, 28))
+        self.view.addSubview_(self.seg_control)
+        self.y += 38
         top = self.y
 
         self.x0, self.cw = 0, CW  # left column: what the hand does, and how it moves the cursor
@@ -294,6 +305,10 @@ class ControlWindow(NSObject):
         self.app.apply_profile(sender.titleOfSelectedItem())
         self.refresh(force=True)
 
+    def controlChanged_(self, sender):
+        self.app.set_control(CONTROL_MODES[sender.selectedSegment()][0])
+        self.refresh(force=True)
+
     def segmentChanged_(self, sender):
         key = self.tag_keys[sender.tag()]
         items = MODES if key == "mode" else SMOOTH_NAMES
@@ -350,4 +365,5 @@ class ControlWindow(NSObject):
         for key, box in self.checks.items():
             box.setState_(1 if self._get(key) else 0)
         self.seg_mode.setSelectedSegment_([k for k, _ in MODES].index(s["mode"]))
+        self.seg_control.setSelectedSegment_([m[0] for m in CONTROL_MODES].index(s["control_mode"]))
         self.seg_smooth.setSelectedSegment_([k for k, _ in SMOOTH_NAMES].index(s["smoothing"]))
