@@ -15,8 +15,8 @@ VALUE_W = 70
 
 # key, label, min, max, value format
 SLIDERS = [
-    ("speed", "Tốc độ", 150, 1500, "{:.0f}"),
-    ("accel", "Tăng tốc khi lia nhanh", 0, 6, "{:.1f}"),
+    ("speed", "Tốc độ", 150, 3000, "{:.0f}"),
+    ("accel", "Tăng tốc khi lia nhanh", 0, 10, "{:.1f}"),
     ("deadzone", "Vùng chết", 0, 0.15, "{:.2f}"),
     ("pinch_threshold", "Ngưỡng chụm ngón", 0.04, 0.25, "{:.2f}"),
     ("tap_threshold", "Ngưỡng gõ cổ tay", 1.8, 3.2, "{:.1f}"),
