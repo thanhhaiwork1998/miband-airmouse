@@ -1,9 +1,9 @@
 #!/bin/zsh
-# Builds ~/Applications/MiBand AirMouse.app (a thin launcher for ~/airmouse/app.py).
+# Builds /Applications/MiBand AirMouse.app (a thin launcher for ~/airmouse/app.py).
 # build_release.sh reuses it with APP/ARCH/VERSION set and SIGN=0, then adds a Python runtime.
 set -e
 cd "$(dirname "$0")"
-APP="${APP:-$HOME/Applications/MiBand AirMouse.app}"
+APP="${APP:-/Applications/MiBand AirMouse.app}"
 ARCH="${ARCH:-$(uname -m)}"
 VERSION="${VERSION:-$(sed -n 's/^VERSION = "\(.*\)".*/\1/p' version.py)}"  # from version.py
 # A fixed signing identity keeps macOS permissions across versions and lets the app update

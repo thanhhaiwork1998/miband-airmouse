@@ -62,12 +62,14 @@ def auth_keys(secret, phone_nonce, watch_nonce):
 
 class Band:
     def __init__(self, address, auth_key_hex, on_sensor=None, log=print, debug=False,
-                 companion=(1, "iPhone15,2", 17)):  # band paired with an iPhone kicks Android identities
+                 companion=(1, "iPhone15,2", 17), name=None):  # band paired with an iPhone kicks Android identities
         self.address = address
+        self.name = name  # the band's saved name: the only other way a connected peripheral is matched
         self.companion = companion  # (device type, phone name, api level) sent during auth
         self.debug = debug
         data = os.environ.get("AIRMOUSE_DATA", os.path.dirname(os.path.abspath(__file__)))
-        self.trace = open(os.path.join(data, "trace.log"), "a") if debug else None
+        self.trace = os.fdopen(os.open(os.path.join(data, "trace.log"), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600),
+                               "a") if debug else None  # decrypted traffic: owner only
         self._trace(f"=== new session companion={companion}")
         self.secret = bytes.fromhex(auth_key_hex.lower().replace("0x", ""))[:16]
         self.on_sensor = on_sensor
@@ -80,6 +82,12 @@ class Band:
         self.disconnected = asyncio.Event()
         self._loop = asyncio.get_event_loop()
         self.auth_failed = None
+        # Mutual authentication: the band must prove it holds the same key (its HMAC over both
+        # nonces, nonce_ok) before its confirmation counts (authenticated). Until then only auth
+        # messages are read; afterwards only encrypted ones - anything else could come from a
+        # device posing as the band and must never reach the pointer.
+        self.nonce_ok = self.authenticated = False
+        self.dropped = 0
         self.enc_key = self.dec_key = self.enc_nonce = None
         self.phone_nonce = os.urandom(16)
         self.connected_at = time.monotonic()
@@ -146,7 +154,7 @@ class Band:
             found += list(cm.retrievePeripheralsWithIdentifiers_([NSUUID.alloc().initWithUUIDString_(self.address)]))
             self._trace(f"macOS peripherals: {[(p.identifier().UUIDString(), p.name()) for p in found]}")
             for p in found:
-                if p.identifier().UUIDString() == self.address or "Band" in (p.name() or ""):
+                if p.identifier().UUIDString() == self.address or self.name and p.name() == self.name:
                     return BLEDevice(p.identifier().UUIDString(), p.name(), (p, self._manager))
         except Exception as e:
             self._trace(f"retrieve failed: {type(e).__name__}: {e}")
@@ -226,7 +234,11 @@ class Band:
             self._send_raw(frame(PKT_ACK, seq, b""))
             channel, opcode, body = payload[0] & 0xF, payload[1], payload[2:]
             if opcode == OP_ENCRYPTED:
+                if self.dec_key is None:
+                    return self._drop("ma hoa truoc khi co khoa")
                 body = self._ctr(self.dec_key, body)
+            elif self.authenticated:
+                return self._drop(f"khong ma hoa sau xac thuc (kenh {channel}, op {opcode})")
             self._trace(f"   data ch={channel} op={opcode} body={body[:64].hex()}")
             if channel == CH_PROTOBUF:
                 cmd = xiaomi_pb2.Command()
@@ -238,7 +250,15 @@ class Band:
                         self.log(f"  (khong doc duoc goi protobuf {len(body)} byte)")
                     return
                 self._trace(f"   cmd type={cmd.type} subtype={cmd.subtype}")
+                if not self.authenticated and cmd.type != AUTH_TYPE:
+                    return self._drop(f"lenh type={cmd.type} truoc khi xac thuc xong")
                 self._on_command(cmd)
+
+    def _drop(self, why):
+        self.dropped += 1
+        self._trace(f"   DROPPED: {why}")
+        if self.dropped <= 5 or self.dropped % 100 == 0:
+            self.log(f"  (bo qua goi tin: {why}; da bo {self.dropped})")
 
     # ---------- auth ----------
     def _nonce_command(self):
@@ -268,10 +288,11 @@ class Band:
             dv = cmd.auth.deviceVerify
             self.dec_key, self.enc_key, _dec_nonce, self.enc_nonce = auth_keys(self.secret, self.phone_nonce, dv.nonce)
             expected = hmac.new(self.dec_key, dv.nonce + self.phone_nonce, hashlib.sha256).digest()
-            if expected != dv.hmac:
+            if not hmac.compare_digest(expected, dv.hmac):
                 self.auth_failed = "Sai auth key (vong tu choi). Vao Thiet lap thiet bi va quet ma QR lai."
                 self.authed.set()
                 return
+            self.nonce_ok = True  # the band proved it holds our key
             phone_type, phone_name, api_level = self.companion
             info = wear_account_pb2.CompanionDevice(unknown1=phone_type, phoneApiLevel=api_level,
                                                     phoneName=phone_name, unknown3=224, region="VN")
@@ -284,6 +305,11 @@ class Band:
             reply.auth.appConfirm.encryptedDeviceInfo = enc_info
             self._send_command(reply)
         elif cmd.subtype == AUTH_CONFIRM:
+            if not self.nonce_ok:
+                # A confirmation without the band ever proving the key: not our band
+                self.log("  (bo qua xac nhan xac thuc chua qua buoc kiem tra khoa)")
+                return
+            self.authenticated = True
             self.authed.set()
         else:
             # Gadgetbridge ignores other auth subtypes too (e.g. 16, sent unprompted)

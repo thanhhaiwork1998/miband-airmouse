@@ -74,7 +74,7 @@ cd ~/airmouse
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
 ./build_app.sh
-open ~/Applications/"MiBand AirMouse.app"
+open /Applications/"MiBand AirMouse.app"
 ```
 
 > **Phải clone vào đúng `~/airmouse`**: ứng dụng `MiBand AirMouse.app` khởi chạy mã nguồn từ thư mục này. Cài đặt được lưu ở `~/airmouse/config.json`.

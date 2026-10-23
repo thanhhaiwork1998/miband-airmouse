@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import threading
+from urllib.parse import urlparse
 
 import AppKit as A
 import objc
@@ -29,6 +30,13 @@ MODELS = [
     ("Mi Band 4 – 7 (chưa hỗ trợ)", False),
     ("Mi Band 2 – 3 (chưa hỗ trợ)", False),
 ]
+
+
+def xiaomi_login_url(url):
+    """Only Xiaomi's own sign-in pages may be opened in the browser."""
+    p = urlparse(url)
+    host = (p.hostname or "").lower()
+    return p.scheme == "https" and (host == "account.xiaomi.com" or host.endswith(".account.xiaomi.com"))
 
 
 def clean_token(text):
@@ -363,7 +371,7 @@ class QrWindow(NSObject):
         data = A.NSData.dataWithBytes_length_(png, len(png))
         self.image.setImage_(A.NSImage.alloc().initWithData_(data))
         self.login_url = login_url
-        self.browser.setEnabled_(login_url.startswith("https://") and ".account.xiaomi.com/" in login_url)
+        self.browser.setEnabled_(xiaomi_login_url(login_url))
         self.status.setStringValue_("Đang chờ bạn quét mã và đăng nhập… (mã hết hạn sau 5 phút)")
 
     @objc.python_method
@@ -408,7 +416,7 @@ class QrWindow(NSObject):
     def browser_(self, sender):
         """The same sign-in page the QR code opens, in the Mac's browser: signing in there
         completes this login too."""
-        if self.login_url:
+        if self.login_url and xiaomi_login_url(self.login_url):
             subprocess.run(["open", self.login_url])
             self.status.setStringValue_("Đăng nhập tài khoản Xiaomi trên trình duyệt vừa mở, rồi quay lại đây…")
 

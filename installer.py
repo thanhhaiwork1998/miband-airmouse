@@ -8,10 +8,13 @@ its own cdhash) can't vouch for another build, so it falls back to opening the r
 """
 import os
 import plistlib
+import posixpath
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 import requests
 
@@ -74,6 +77,7 @@ def prepare(info, progress, cancelled=lambda: False):
                 done += len(chunk)
                 progress(done / total if total else None, f"Đang tải {done * 100 // total}%…" if total else "Đang tải…")
     progress(None, "Đang kiểm tra…")
+    check_archive(zip_path)  # before anything is written from it
     out = os.path.join(work, "new")
     subprocess.run(["ditto", "-x", "-k", zip_path, out], check=True, capture_output=True)
     apps = [n for n in os.listdir(out) if n.endswith(".app")]
@@ -83,6 +87,25 @@ def prepare(info, progress, cancelled=lambda: False):
     verify(new, bundle_path(), info["version"])
     os.remove(zip_path)
     return new
+
+
+def check_archive(zip_path):
+    """Only files, folders and inside-pointing symlinks under one top-level .app (macOS metadata
+    aside): no absolute paths, no "..", no link leading out - so unpacking can't write outside
+    its folder. (The bundled Python has a few relative links, e.g. bin/python3 -> python3.12.)"""
+    with zipfile.ZipFile(zip_path) as z:
+        for info in z.infolist():
+            name = info.filename
+            parts = name.split("/")
+            if name.startswith("/") or "\\" in name or ".." in parts:
+                raise RuntimeError(f"gói tải về có đường dẫn lạ: {name}")
+            if parts[0] != "__MACOSX" and not parts[0].endswith(".app"):
+                raise RuntimeError(f"gói tải về có file ngoài app: {name}")
+            if stat.S_ISLNK(info.external_attr >> 16):
+                target = z.read(info).decode("utf-8", "replace")
+                resolved = posixpath.normpath(posixpath.join(posixpath.dirname(name), target))
+                if target.startswith("/") or not resolved.startswith(parts[0] + "/"):
+                    raise RuntimeError(f"gói tải về có liên kết ra ngoài app: {name} -> {target}")
 
 
 def verify(new, running, version):
@@ -104,10 +127,16 @@ def verify(new, running, version):
 SWAP = r'''#!/bin/bash
 # Waits for MiBand AirMouse to quit, puts the new version in its place and opens it.
 # A failed swap puts the old version back.
-OLD="$1"; NEW="$2"; PID="$3"; LOG="$4"; REOPEN="$5"
+OLD="$1"; NEW="$2"; PID="$3"; LOG="$4"; REOPEN="$5"; REQ="$6"
 exec >>"$LOG" 2>&1
 echo "$(date '+%H:%M:%S') swap: waiting for pid $PID"
 for i in $(seq 1 150); do kill -0 "$PID" 2>/dev/null || break; sleep 0.2; done
+# Checked again now: the bundle may have been changed while the app was quitting
+if ! codesign --verify --deep --strict -R="$REQ" "$NEW"; then
+  echo "$(date '+%H:%M:%S') swap: the new version no longer passes the signature check, not installed"
+  [ "$REOPEN" = 1 ] && open "$OLD"
+  exit 1
+fi
 BACKUP="$(dirname "$NEW")/previous.app"
 rm -rf "$BACKUP"
 if mv "$OLD" "$BACKUP" && mv "$NEW" "$OLD"; then
@@ -124,10 +153,13 @@ fi
 def install(new, wait_pid, log_path, reopen=True, old=None):
     """Start the swap in a detached helper; the caller then quits the app."""
     old = old or bundle_path()
+    req = designated_requirement(old)
+    if not req or req.startswith("cdhash"):
+        raise RuntimeError("bản đang dùng chưa có chữ ký cố định")
     script = os.path.join(tempfile.mkdtemp(prefix="airmouse-update-"), "swap.sh")
     with open(script, "w") as f:
         f.write(SWAP)
     os.chmod(script, 0o700)
-    subprocess.Popen(["/bin/bash", script, old, new, str(wait_pid), log_path, "1" if reopen else "0"],
+    subprocess.Popen(["/bin/bash", script, old, new, str(wait_pid), log_path, "1" if reopen else "0", req],
                      start_new_session=True, stdin=subprocess.DEVNULL,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -35,6 +35,9 @@ DATA = os.environ.get("AIRMOUSE_DATA", HERE)
 os.makedirs(DATA, exist_ok=True)
 CONFIG = os.path.join(DATA, "config.json")
 LOG = os.path.join(DATA, "app.log")
+for _path in (CONFIG, LOG):  # files from older versions were created readable by everyone
+    if os.path.exists(_path):
+        os.chmod(_path, 0o600)
 REQUESTS = set()  # "show" / "quit" asked for by the Dock launcher's signals
 PARENT = os.getppid()  # the Dock launcher; if it dies without signalling, don't linger
 DEFAULT_PROFILE = "Mặc định"
@@ -212,8 +215,15 @@ def _soft_deadzone(v, dz):
     return 0.0 if abs(v) <= dz else v - dz if v > 0 else v + dz
 
 
+def private_open(path, mode):
+    """Open for writing with owner-only permissions from the first byte (the log tells when
+    and how the band is used; config.json holds its token)."""
+    flags = os.O_WRONLY | os.O_CREAT | (os.O_APPEND if mode == "a" else os.O_TRUNC)
+    return os.fdopen(os.open(path, flags, 0o600), mode)
+
+
 def log(msg):
-    with open(LOG, "a") as f:
+    with private_open(LOG, "a") as f:
         f.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
 
 
@@ -254,9 +264,10 @@ def profile_of(settings):
 
 def save_config(cfg, settings):
     cfg["mouse"] = settings
-    with open(CONFIG, "w") as f:
+    tmp = CONFIG + ".tmp"  # written whole, then swapped in: never half-written, never readable by others
+    with private_open(tmp, "w") as f:
         json.dump(cfg, f, indent=2)
-    os.chmod(CONFIG, 0o600)  # it holds the band's token: owner only
+    os.replace(tmp, CONFIG)
 
 
 class Pointer:
@@ -1145,7 +1156,8 @@ class Engine:
     async def _run_band(self):
         """Mi Band 10: connect, authenticate, keep the hidden workout's sensor stream going."""
         while True:
-            band = Band(self.cfg["ble_address"], self.cfg["auth_key"], on_sensor=self.pointer, log=log)
+            band = Band(self.cfg["ble_address"], self.cfg["auth_key"], on_sensor=self.pointer, log=log,
+                        name=self.cfg.get("name"))
             try:
                 self.on_status("connecting", "Dang ket noi vong...")
                 await band.connect()
@@ -1586,7 +1598,7 @@ class AirMouseApp(rumps.App):
             for phase, seconds, title, text in steps:
                 rumps.alert(title, text)
                 rows += [(phase,) + s for s in self.engine.capture(seconds)]
-            with open(path, "w") as f:
+            with private_open(path, "w") as f:
                 f.write("phase,t,ax,ay,az,gx,gy,gz\n")
                 for r in rows:
                     f.write(r[0] + "," + ",".join(f"{v:.5f}" for v in r[1:]) + "\n")
